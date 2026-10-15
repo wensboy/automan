@@ -45,6 +45,10 @@ type Engine struct {
 
 	path   string
 	params config.Settings // 底层类型化默认
+
+	// persistFilter 限定可写入用户文件的键; 为空表示全部可写。
+	// 用途: 用户文件只承载"用户可配置的键", 程序参数(引擎自用)与运行态数据不落进该文件。
+	persistFilter func(name string) bool
 }
 
 // Option 设置设置引擎的必要字段.
@@ -52,6 +56,12 @@ type Option func(*Engine)
 
 // WithPath 覆盖用户设置文件路径 (相对存储根, 缺省 settings.json).
 func WithPath(path string) Option { return func(e *Engine) { e.path = path } }
+
+// WithPersistFilter 限定写入用户文件的键(缺省全部可写).
+// 组合根传入"用户可配置键集合", 避免程序参数/运行态键被写进用户文件。
+func WithPersistFilter(allow func(name string) bool) Option {
+	return func(e *Engine) { e.persistFilter = allow }
+}
 
 // New 创建设置引擎.
 func New(opts ...Option) *Engine {

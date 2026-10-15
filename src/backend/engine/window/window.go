@@ -59,9 +59,13 @@ func (e *Engine) Init(ctx context.Context) error {
 	}
 	unsubChanged := ebus.Subscribe(event.TopicSettingsChanged, e.forwardSettingsChanged)
 	unsubReloaded := ebus.Subscribe(event.TopicSettingsReloaded, e.forwardSettingsReloaded)
+	unsubLoaded := ebus.Subscribe(event.TopicSettingsLoaded, e.forwardSettingsLoaded)
+	unsubSaved := ebus.Subscribe(event.TopicSettingsSaved, e.forwardSettingsSaved)
 	e.unsub = func() {
 		unsubChanged()
 		unsubReloaded()
+		unsubLoaded()
+		unsubSaved()
 	}
 	return nil
 }
@@ -136,6 +140,24 @@ func (e *Engine) forwardSettingsReloaded(payload any) {
 		return
 	}
 	e.app.Event.Emit("settings:reloaded", reloaded.Keys, reloaded.Err)
+}
+
+// forwardSettingsLoaded 转发"设置装配完成"(前端可用于首次拉取后校正界面).
+func (e *Engine) forwardSettingsLoaded(payload any) {
+	loaded, ok := cast.As[event.SettingsLoaded](payload)
+	if !ok || e.app == nil {
+		return
+	}
+	e.app.Event.Emit("settings:loaded", loaded.Keys)
+}
+
+// forwardSettingsSaved 转发"落盘完成"(前端据此确认修改已持久化).
+func (e *Engine) forwardSettingsSaved(payload any) {
+	saved, ok := cast.As[event.SettingsSaved](payload)
+	if !ok || e.app == nil {
+		return
+	}
+	e.app.Event.Emit("settings:saved", saved.Keys)
 }
 
 var (

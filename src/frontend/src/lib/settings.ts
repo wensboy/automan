@@ -1,38 +1,37 @@
+import { Events } from "@wailsio/runtime"
+
+import { SettingsService } from "../../bindings/github.com/wensboy/automan/backend/api/web"
 import { staticStore } from "@/lib/static-data"
-import { settingsRuntimeValues } from "@/mock/settings"
-import {
-  parseFieldType,
-  type SettingsField,
-  type SettingsGroup,
-  type SettingsScalar,
-  type SettingsStatic,
-  type SettingsValue,
-  type SettingsValues,
-} from "@/static/types/settings"
+import { parseFieldType, type SettingsField, type SettingsGroup, type SettingsStatic, type SettingsValue, type SettingsValues } from "@/static/types/settings"
 
 /**
  * 设置的读写层 (前端唯一出口)。
  *
  * 职责边界:
- * - **描述**: 由 `static/default/settings.json` 提供 (有哪些分区/配置项、各是什么类型);
- * - **取值**: 一律由运行时下发 (后端 settings engine 叠加三视图后的生效值), **前端不参与默认值**;
- * - **提交**: 修改后交给后端落盘 (用户目录的 settings.json, schema 见 data/schema/…)。
- *
- * 当前 load/save 是 dev 实现: 值取自 `mock/settings.ts`(运行时占位) + 本地覆盖。
- * 接后端后只需替换这两个函数, 上层组件与字段形态都不用动。
+ * - **描述**: `static/default/settings.json` 决定有哪些分区/配置项、各是什么类型(控件映射见 settings-dialog);
+ * - **取值**: 一律来自后端 settings 服务(引擎三视图 runtime > user > bottom 叠加后的生效值),
+ *   前端**不参与默认值**; 值缺失时展示占位符, 不臆造;
+ * - **提交**: `Apply` 写运行态 + `Save` 落盘到用户目录的 settings.json;
+ * - **回流**: 订阅后端事件(落盘完成 / 外部改动重载)后重新拉取。
  */
-
-const STORE_KEY = "automan.settings"
-
-/** 分区与配置项描述: 按 settings.json 的顶层键顺序组装。 */
 export function settingsGroups(): SettingsGroup[] {
   const raw = (staticStore.view().Value("settings") ?? {}) as unknown as SettingsStatic
   return Object.entries(raw).flatMap(([id, fields]) => {
     const meta = settingsGroupMeta(id)
-    const parsed = Object.values(fields)
-      .filter((field): field is SettingsField => Boolean(field) && parseFieldType(field.type) !== undefined)
+    const parsed = Object.values(fields).filter(
+      (field): field is SettingsField => Boolean(field) && parseFieldType(field.type) !== undefined,
+    )
     return [{ id, label: meta.label, icon: meta.icon, fields: parsed }]
   })
+}
+
+/** 分区 -> 配置项 的查找表 (按 key 取字段描述)。 */
+function fieldByKey(): Map<string, SettingsField> {
+  const index = new Map<string, SettingsField>()
+  for (const group of settingsGroups()) {
+    for (const field of group.fields) index.set(field.key, field)
+  }
+  return index
 }
 
 /** 分区的展示文本与图标 (UI 文案来自 static/default/sidebar.json, 与 settings.json 的分区键对齐)。 */
@@ -56,12 +55,11 @@ export function parseFieldValue(field: SettingsField, raw: unknown): SettingsVal
       return typeof raw === "string" ? raw : undefined
     case "number":
       if (typeof raw !== "number" || Number.isNaN(raw)) return undefined
-      // 有边界时才夹紧 (边界属描述数据, 不是默认值)
       return clamp(raw, field.type === "number" ? field.min : undefined, field.type === "number" ? field.max : undefined)
     case "enum": {
       if (!isScalarOf(type.of, raw)) return undefined
       const options = (field as { options?: unknown[] }).options ?? []
-      return options.includes(raw as SettingsScalar<typeof type.of>) ? (raw as SettingsValue) : undefined
+      return options.includes(raw as never) ? (raw as SettingsValue) : undefined
     }
     case "array": {
       if (!Array.isArray(raw)) return undefined
@@ -84,32 +82,49 @@ function isScalarOf(type: string, value: unknown): boolean {
 }
 
 /**
- * 读取生效值。
- * dev: 运行时占位数据 + 本地覆盖 (逐字段校验, 非法值丢弃)。
- * 后端接入后: 直接返回 settings service 的查询结果。
+ * 读取生效值: 一次 List 拿全量, 只保留后端下发的值(前端不补默认值)。
+ * 后端若给出与描述不符的类型, 这里退回原值, 由控件层展示占位/降级。
  */
 export async function loadSettings(): Promise<SettingsValues> {
-  const values: SettingsValues = { ...settingsRuntimeValues }
-  let stored: Record<string, unknown> = {}
-  try {
-    stored = JSON.parse(localStorage.getItem(STORE_KEY) ?? "{}") as Record<string, unknown>
-  } catch {
-    stored = {}
-  }
-  for (const group of settingsGroups()) {
-    for (const field of group.fields) {
-      if (!(field.key in stored)) continue
-      const parsed = parseFieldValue(field, stored[field.key])
-      if (parsed !== undefined) values[field.key] = parsed
-    }
+  const entries = (await SettingsService.List()) ?? {}
+  const fields = fieldByKey()
+  const values: SettingsValues = {}
+  for (const [key, entry] of Object.entries(entries)) {
+    if (!entry) continue
+    const field = fields.get(key)
+    values[key] = (field ? parseFieldValue(field, entry.value) : undefined) ?? (entry.value as SettingsValue)
   }
   return values
 }
 
+/** 提交修改: Apply(运行态) + Save(落盘)。只提交改动过的键。 */
+export async function saveSettings(patch: SettingsValues): Promise<void> {
+  if (Object.keys(patch).length === 0) return
+  await SettingsService.Apply(patch)
+  await SettingsService.Save()
+}
+
+/** 抹掉某键的覆盖并落盘(回落默认层)。 */
+export async function resetSetting(key: string): Promise<void> {
+  await SettingsService.Reset(key)
+  await SettingsService.Save()
+}
+
+export type SettingsEventKind = "changed" | "saved" | "reloaded"
+
 /**
- * 提交修改 (dev: 写本地覆盖)。
- * 后端接入后: 提交给 settings service 并等待落盘结果; 只提交改动过的键。
+ * 订阅后端设置事件, 返回取消函数。
+ * - saved   : 本次落盘完成
+ * - reloaded: 用户文件被外部修改后重载
+ * - changed : 运行态单键变更(我们的批量提交也会触发, 界面可自行取舍)
  */
-export async function saveSettings(values: SettingsValues): Promise<void> {
-  localStorage.setItem(STORE_KEY, JSON.stringify(values))
+export function subscribeSettings(handler: (kind: SettingsEventKind) => void): () => void {
+  const offs = [
+    Events.On("settings:changed", () => handler("changed")),
+    Events.On("settings:saved", () => handler("saved")),
+    Events.On("settings:reloaded", () => handler("reloaded")),
+  ]
+  return () => {
+    for (const off of offs) off()
+  }
 }

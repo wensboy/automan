@@ -33,7 +33,13 @@ import {
 } from "@/components/ui/sidebar"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
-import { loadSettings, parseFieldValue, saveSettings, settingsGroups } from "@/lib/settings"
+import {
+  loadSettings,
+  parseFieldValue,
+  saveSettings,
+  settingsGroups,
+  subscribeSettings,
+} from "@/lib/settings"
 import {
   parseFieldType,
   type SettingsField,
@@ -177,7 +183,7 @@ function NumberControl({
 /**
  * 设置弹窗: 左侧分区与右侧配置项**全部由 `static/default/settings.json` 描述**,
  * 展示文案(标题/分区名/图标)取自 `sidebar.json` 的 settings 段。
- * 取值一律来自运行时(dev 为 mock 占位), 修改后提交给后端落盘; 前端不涉及默认值。
+ * 取值一律来自后端 settings 服务(引擎三视图叠加后的生效值), 修改经 Apply + Save 落盘; 前端不涉及默认值。
  */
 export default function SettingsDialog({
   open,
@@ -202,20 +208,41 @@ export default function SettingsDialog({
   const [loaded, setLoaded] = React.useState<SettingsValues>({})
   const [pending, setPending] = React.useState(false)
 
-  // 打开时读取生效值 (dev: mock 占位 + 本地覆盖; 接后端后由查询接口返回)
+  // 打开时读取生效值 (后端 List: 引擎三视图叠加结果)
   React.useEffect(() => {
     if (!open) return
     let cancelled = false
     setPending(true)
-    void loadSettings().then((next) => {
-      if (cancelled) return
-      setValues(next)
-      setLoaded(next)
-      setPending(false)
-    })
+    void loadSettings()
+      .then((next) => {
+        if (cancelled) return
+        setValues(next)
+        setLoaded(next)
+      })
+      .catch(() => {
+        if (cancelled) return
+        toast.error("Failed to load settings")
+      })
+      .finally(() => {
+        if (!cancelled) setPending(false)
+      })
     return () => {
       cancelled = true
     }
+  }, [open])
+
+  // 后端事件: 落盘完成或用户文件被外部修改后重新拉取生效值
+  React.useEffect(() => {
+    if (!open) return
+    return subscribeSettings((kind) => {
+      if (kind === "changed") return
+      void loadSettings()
+        .then((next) => {
+          setValues(next)
+          setLoaded(next)
+        })
+        .catch(() => undefined)
+    })
   }, [open])
 
   const activeGroup = groups.find((group) => group.id === active) ?? groups[0]
@@ -238,9 +265,13 @@ export default function SettingsDialog({
     // 只提交改动过的键 (用户文件保持"只放覆盖项"的语义)
     const diff: SettingsValues = {}
     for (const key of dirtyKeys) diff[key] = values[key]
-    await saveSettings(diff)
-    setLoaded(values)
-    toast.success("Settings saved")
+    try {
+      await saveSettings(diff)
+      setLoaded(values)
+      toast.success("Settings saved")
+    } catch {
+      toast.error("Failed to save settings")
+    }
   }
 
   return (

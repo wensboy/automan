@@ -44,9 +44,23 @@ func decode(data []byte) (map[string]any, error) {
 	return paths, nil
 }
 
+// filterOverrides 只保留允许落盘的键; allow 为空表示不过滤.
+func filterOverrides(overrides map[string]any, allow func(name string) bool) map[string]any {
+	if allow == nil {
+		return overrides
+	}
+	kept := make(map[string]any, len(overrides))
+	for name, value := range overrides {
+		if allow(name) {
+			kept[name] = value
+		}
+	}
+	return kept
+}
+
 // save 叠加 user+runtime 回写用户文件 (原子写), 成功后把 runtime 提升进 user 层.
 func (e *Engine) save() error {
-	overrides := e.views.overrides()
+	overrides := filterOverrides(e.views.overrides(), e.persistFilter)
 	data, err := json.MarshalIndent(flat.Build(overrides), "", "    ")
 	if err != nil {
 		return fmt.Errorf("settings: encode: %w", err)

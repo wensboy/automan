@@ -8,11 +8,12 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	apiwindow "github.com/wensboy/automan/backend/api/window"
+	apiweb "github.com/wensboy/automan/backend/api/web"
 	bridgeasset "github.com/wensboy/automan/backend/bridge"
 	domainconfig "github.com/wensboy/automan/backend/domain/config"
 	"github.com/wensboy/automan/backend/domain/context"
 	"github.com/wensboy/automan/backend/domain/engine"
+	domainsettings "github.com/wensboy/automan/backend/domain/settings"
 	bridgeengine "github.com/wensboy/automan/backend/engine/bridge"
 	confengine "github.com/wensboy/automan/backend/engine/config"
 	databaseengine "github.com/wensboy/automan/backend/engine/database"
@@ -25,20 +26,31 @@ import (
 	apperr "github.com/wensboy/automan/backend/internal/err"
 	"github.com/wensboy/automan/backend/internal/kits/configkit"
 	"github.com/wensboy/automan/backend/internal/kits/enginekit"
+	"github.com/wensboy/automan/backend/internal/kits/schemakit"
 	"github.com/wensboy/automan/backend/internal/kits/srvkit"
 	"github.com/wensboy/automan/backend/internal/registry"
-	serviceapp "github.com/wensboy/automan/backend/service/app"
+	servicesettings "github.com/wensboy/automan/backend/service/settings"
 )
 
 // Run 组装并执行完整启动链路.
 func Run(mode context.Mode, assets, data fs.FS) error {
+	// 设置的键表与默认值在装配引擎前就要就绪: 键表用于限定"哪些键可落盘", 默认值注入服务层
+	fields, err := loadSchemaFields(data)
+	if err != nil {
+		return err
+	}
+	defaults, err := loadDefaults(data)
+	if err != nil {
+		return err
+	}
+
 	rt := rtengine.New(rtengine.WithMode(mode), rtengine.WithRegistry(registry.New()))
 	defer rt.Cancel()
 
 	win := winengine.New(
 		winengine.WithAssets(assets),
 		winengine.WithServices(
-			application.NewService(apiwindow.NewGreetService(rt)),
+			application.NewService(apiweb.NewSettingsService(rt)),
 		),
 	)
 
@@ -48,7 +60,11 @@ func Run(mode context.Mode, assets, data fs.FS) error {
 		storeengine.New(),
 		logengine.New(),
 		databaseengine.New(),
-		settingsengine.New(),
+		// 用户文件只承载 schema 声明的键: 程序参数(conf/settings)与运行态键不写进该文件
+		settingsengine.New(settingsengine.WithPersistFilter(func(name string) bool {
+			_, ok := fields[name]
+			return ok
+		})),
 		bridgeengine.New(
 			bridgeengine.WithDaemon("node"),
 			bridgeengine.WithAsset(bridgeasset.Asset("node/dist")),
@@ -74,7 +90,12 @@ func Run(mode context.Mode, assets, data fs.FS) error {
 		return err
 	}
 
-	if err := registerServices(rt); err != nil {
+	// 用户目录: settings.json 缺失才创建; schema 每次启动覆盖(随应用更新同步)
+	if err := syncUserFiles(rt, data); err != nil {
+		return err
+	}
+
+	if err := registerServices(rt, fields, defaults); err != nil {
 		return err
 	}
 
@@ -102,9 +123,11 @@ func registerErrors(provider domainconfig.Provider) error {
 	return apperr.Register(entries)
 }
 
-func registerServices(rt *rtengine.Runtime) error {
-	if err := srvkit.Register(rt, serviceapp.Key, serviceapp.New()); err != nil {
-		return err
+func registerServices(rt *rtengine.Runtime, fields map[string]schemakit.Field, defaults map[string]any) error {
+	// 设置服务内部持有引擎: 组合根在此解析一次并注入
+	store, ok := enginekit.Of[domainsettings.Store](rt, "settings")
+	if !ok {
+		return errors.New("bootstrap: settings engine unavailable")
 	}
-	return nil
+	return srvkit.Register(rt, servicesettings.Key, servicesettings.New(store, fields, defaults))
 }

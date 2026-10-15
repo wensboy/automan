@@ -1,0 +1,29 @@
+{
+    "appearence": {
+        "mode": "auto",
+        "compact": false
+    },
+    "theme": {
+        "accent": "neutral",
+        "radius": 0.625
+    },
+    "proxy": {
+        "autoStart": false,
+        "timeout": 30,
+        "bypass": ["localhost", "127.0.0.1"],
+        "userAgent": ""
+    },
+    "automation": {
+        "enabled": false,
+        "concurrency": 4,
+        "paths": []
+    },
+    "general": {
+        "language": "English",
+        "startupPage": "/"
+    },
+    "advanced": {
+        "watchMs": 2000,
+        "debounceMs": 100
+    }
+}

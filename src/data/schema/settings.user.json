@@ -1,13 +1,3 @@
 {
-    "$schema": "./settings.user.schema.json",
-    "appearence": {
-        "mode": "auto"
-    },
-    "theme": {},
-    "proxy": {},
-    "automation": {},
-    "general": {
-        "language": "English"
-    },
-    "advanced": {}
+    "$schema": "./settings.schema.json",
 }
