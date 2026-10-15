@@ -1,0 +1,11 @@
+{
+    "meta": {
+        "namespace": "conf/log"
+    },
+    "dir": "logs",
+    "file": "automan.log",
+    "buffer": 2048,
+    "batch": 256,
+    "consoleLevel": "info",
+    "fileLevel": "debug"
+}

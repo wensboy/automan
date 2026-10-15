@@ -1,0 +1,21 @@
+{
+    "meta": {
+        "namespace": "conf/error"
+    },
+    "builtin": [
+        {
+            "code": 10000001,
+            "msg": "fatal error"
+        },
+        {
+            "code": 10000002,
+            "msg": "not found"
+        }
+    ],
+    "service": [
+        {
+            "code": 20000001,
+            "msg": "xxx fail"
+        }
+    ]
+}

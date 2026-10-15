@@ -1,0 +1,143 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://automan.local/schema/settings.user.schema.json",
+    "title": "Automan user settings",
+    "description": "settings.user.json 的 schema: 用于编辑器提示与写入前校验. 用户文件是运行期基础配置, 只写覆盖项; 未写入的键回落到内置默认 (data/conf) 与 runtime 层.",
+    "type": "object",
+    "properties": {
+        "$schema": {
+            "type": "string",
+            "description": "指向本 schema 的相对路径 (供编辑器识别)."
+        },
+        "appearence": {
+            "type": "object",
+            "description": "外观与布局.",
+            "properties": {
+                "mode": {
+                    "enum": ["auto", "light", "dark"],
+                    "default": "auto",
+                    "description": "主题模式: auto 跟随系统."
+                },
+                "compact": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "紧凑布局: 压缩行高与间距."
+                }
+            },
+            "additionalProperties": false
+        },
+        "theme": {
+            "type": "object",
+            "description": "主题细节.",
+            "properties": {
+                "accent": {
+                    "enum": ["neutral", "blue", "green", "orange"],
+                    "default": "neutral",
+                    "description": "强调色 (与 index.css 的 token 对应)."
+                },
+                "radius": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1.5,
+                    "default": 0.625,
+                    "description": "圆角基准值 (rem)."
+                }
+            },
+            "additionalProperties": false
+        },
+        "proxy": {
+            "type": "object",
+            "description": "代理相关默认值.",
+            "properties": {
+                "autoStart": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "应用启动时自动启动已启用的代理."
+                },
+                "timeout": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 120,
+                    "default": 30,
+                    "description": "上游连接超时 (秒)."
+                },
+                "bypass": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "default": ["localhost", "127.0.0.1"],
+                    "description": "不走代理的地址列表."
+                },
+                "userAgent": {
+                    "type": "string",
+                    "default": "",
+                    "description": "上游请求使用的 User-Agent (留空表示透传)."
+                }
+            },
+            "additionalProperties": false
+        },
+        "automation": {
+            "type": "object",
+            "description": "自动化相关默认值.",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "启用自动化工作流."
+                },
+                "concurrency": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 16,
+                    "default": 4,
+                    "description": "并发执行的工作流数量."
+                },
+                "paths": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "default": [],
+                    "description": "工作流文件所在目录."
+                }
+            },
+            "additionalProperties": false
+        },
+        "general": {
+            "type": "object",
+            "description": "通用设置.",
+            "properties": {
+                "language": {
+                    "enum": ["English", "Chinese"],
+                    "default": "English",
+                    "description": "界面语言."
+                },
+                "startupPage": {
+                    "type": "string",
+                    "default": "/",
+                    "description": "启动后进入的页面路径."
+                }
+            },
+            "additionalProperties": false
+        },
+        "advanced": {
+            "type": "object",
+            "description": "高级设置 (谨慎修改).",
+            "properties": {
+                "watchMs": {
+                    "type": "number",
+                    "minimum": 200,
+                    "maximum": 10000,
+                    "default": 2000,
+                    "description": "配置文件监听间隔 (毫秒)."
+                },
+                "debounceMs": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 2000,
+                    "default": 100,
+                    "description": "文件变更防抖 (毫秒)."
+                }
+            },
+            "additionalProperties": false
+        }
+    },
+    "additionalProperties": true
+}

@@ -1,0 +1,270 @@
+{
+    "teams": [
+        {
+            "name": "Acme Inc",
+            "plan": "Enterprise",
+            "logo": "gallery-vertical-end"
+        },
+        {
+            "name": "Acme Corp.",
+            "plan": "Startup",
+            "logo": "audio-waveform"
+        },
+        {
+            "name": "Evil Corp.",
+            "plan": "Free",
+            "logo": "command"
+        }
+    ],
+    "navMain": [
+        {
+            "title": "Home",
+            "url": "/",
+            "icon": "house"
+        },
+        {
+            "title": "Proxy",
+            "url": "/proxy",
+            "icon": "route"
+        },
+        {
+            "title": "Capture",
+            "url": "/capture",
+            "icon": "radar"
+        },
+        {
+            "title": "Records",
+            "url": "/records",
+            "icon": "clipboard-list"
+        },
+        {
+            "title": "Logs",
+            "url": "/logs",
+            "icon": "scroll-text"
+        },
+        {
+            "title": "Automation",
+            "url": "/automation",
+            "icon": "workflow"
+        }
+    ],
+    "navSecondary": [
+        {
+            "title": "Search",
+            "url": "#search",
+            "icon": "search"
+        },
+        {
+            "title": "Help",
+            "url": "#help",
+            "icon": "help-circle"
+        },
+        {
+            "title": "Settings",
+            "url": "#settings",
+            "icon": "settings"
+        }
+    ],
+    "user": {
+        "name": "shadcn",
+        "email": "m@example.com",
+        "avatar": "/placeholder.svg"
+    },
+    "teamSwitcher": {
+        "aria": "Switch team",
+        "addTeam": "Add team"
+    },
+    "navUser": {
+        "account": "Account",
+        "notifications": "Notifications",
+        "logOut": "Log out"
+    },
+    "notice": {
+        "title": "Notifications",
+        "searchAria": "Search notifications",
+        "searchPlaceholder": "Search notifications...",
+        "doNotDisturb": "Do not disturb",
+        "clear": "Clear notifications",
+        "empty": "No notifications",
+        "dismiss": "Dismiss",
+        "expand": "Expand",
+        "collapse": "Collapse"
+    },
+    "account": {
+        "title": "Account",
+        "information": "Information",
+        "password": "Password",
+        "name": "Name",
+        "email": "Email",
+        "avatarAlt": "Avatar",
+        "currentPassword": "Current",
+        "newPassword": "New",
+        "confirmPassword": "Confirm",
+        "edit": "Edit",
+        "save": "Save",
+        "refresh": "Refresh",
+        "informationSaved": "Information saved",
+        "passwordSaved": "Password saved",
+        "informationRefreshed": "Information refreshed",
+        "passwordRefreshed": "Password refreshed",
+        "avatarUpdated": "Avatar updated"
+    },
+    "help": {
+        "title": "Help",
+        "version": "Documentation",
+        "searchPlaceholder": "Search the docs...",
+        "fallback": "Browse the documentation.",
+        "versions": [
+            "1.0.1",
+            "1.1.0-alpha",
+            "2.0.0-beta1"
+        ],
+        "groups": [
+            {
+                "title": "Getting Started",
+                "items": [
+                    {
+                        "title": "Installation"
+                    },
+                    {
+                        "title": "Project Structure"
+                    }
+                ]
+            },
+            {
+                "title": "Build Your Application",
+                "items": [
+                    {
+                        "title": "Routing"
+                    },
+                    {
+                        "title": "Data Fetching"
+                    },
+                    {
+                        "title": "Rendering"
+                    },
+                    {
+                        "title": "Caching"
+                    },
+                    {
+                        "title": "Styling"
+                    },
+                    {
+                        "title": "Optimizing"
+                    },
+                    {
+                        "title": "Configuring"
+                    },
+                    {
+                        "title": "Testing"
+                    },
+                    {
+                        "title": "Authentication"
+                    },
+                    {
+                        "title": "Deploying"
+                    },
+                    {
+                        "title": "Upgrading"
+                    },
+                    {
+                        "title": "Examples"
+                    }
+                ]
+            },
+            {
+                "title": "API Reference",
+                "items": [
+                    {
+                        "title": "Components"
+                    },
+                    {
+                        "title": "File Conventions"
+                    },
+                    {
+                        "title": "Functions"
+                    },
+                    {
+                        "title": "next.config.js Options"
+                    },
+                    {
+                        "title": "CLI"
+                    },
+                    {
+                        "title": "Edge Runtime"
+                    }
+                ]
+            },
+            {
+                "title": "Architecture",
+                "items": [
+                    {
+                        "title": "Accessibility"
+                    },
+                    {
+                        "title": "Fast Refresh"
+                    },
+                    {
+                        "title": "Next.js Compiler"
+                    },
+                    {
+                        "title": "Supported Browsers"
+                    },
+                    {
+                        "title": "Turbopack"
+                    }
+                ]
+            },
+            {
+                "title": "Community",
+                "items": [
+                    {
+                        "title": "Contribution Guide"
+                    }
+                ]
+            }
+        ]
+    },
+    "command": {
+        "placeholder": "Type a command or search...",
+        "empty": "No results found.",
+        "pagesGroup": "Pages",
+        "settingsGroup": "Settings"
+    },
+    "settings": {
+        "title": "Settings",
+        "description": "Customize your settings here.",
+        "groups": [
+            {
+                "id": "appearence",
+                "label": "Appearence",
+                "icon": "paintbrush"
+            },
+            {
+                "id": "theme",
+                "label": "Theme",
+                "icon": "paintbrush"
+            },
+            {
+                "id": "proxy",
+                "label": "Proxy",
+                "icon": "route"
+            },
+            {
+                "id": "automation",
+                "label": "Automation",
+                "icon": "workflow"
+            },
+            {
+                "id": "general",
+                "label": "General",
+                "icon": "settings"
+            },
+            {
+                "id": "advanced",
+                "label": "Advanced",
+                "icon": "settings"
+            }
+        ]
+    }
+}

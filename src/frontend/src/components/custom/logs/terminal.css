@@ -1,0 +1,20 @@
+/*
+ * 终端滚动条: 完全隐藏 (滚动能力不变 —— 滚轮 / Shift+PgUp/PgDn, 历史由 xterm 的 scrollback 维护)。
+ *
+ * 两处都要关:
+ * 1) xterm 6 自带一套 VS Code 风格的滚动条元件: `.xterm-scrollable-element > .scrollbar`,
+ *    靠 `.visible` / `.invisible.fade` 做淡入淡出 —— 日志持续写入时它就不停淡入淡出,
+ *    这正是"滚动条频繁闪动"的来源。它不参与浏览器滚动条机制, ::-webkit-scrollbar 管不到。
+ * 2) 元素自身可能还有内核的 overlay 滚动条, 一并关掉。
+ *
+ * 注意: 不要写标准属性 scrollbar-width / scrollbar-color —— WebKit 下一旦设置它们,
+ * 会改用标准滚动条并忽略 ::-webkit-scrollbar 样式。
+ * 选择器带 [data-slot=log-terminal] 前缀以提高特异性, 不依赖打包顺序。
+ */
+[data-slot="log-terminal"] .xterm .xterm-scrollable-element > .scrollbar {
+  display: none;
+}
+
+[data-slot="log-terminal"] .xterm .xterm-viewport::-webkit-scrollbar {
+  display: none;
+}

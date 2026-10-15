@@ -1,0 +1,220 @@
+{
+    "shared": {
+        "notImplemented": "This page is not implemented yet."
+    },
+    "notFound": {
+        "title": "404",
+        "description": "Page not found.",
+        "back": "Back to home"
+    },
+    "home": {
+        "title": "Home",
+        "addFeature": "Add feature",
+        "emptyTitle": "No feature selected",
+        "emptyHint": "Pick a feature from the menu on the right.",
+        "closeTab": "Close ",
+        "features": [
+            {
+                "id": "certificates",
+                "label": "Certificates",
+                "description": "This feature is not implemented yet.",
+                "icon": "shield-check"
+            },
+            {
+                "id": "statistics",
+                "label": "Statistics",
+                "description": "This feature is not implemented yet.",
+                "icon": "chart-column"
+            },
+            {
+                "id": "quick-jump",
+                "label": "Quick Jump",
+                "description": "This feature is not implemented yet.",
+                "icon": "zap"
+            },
+            {
+                "id": "environment",
+                "label": "Environment",
+                "description": "This feature is not implemented yet.",
+                "icon": "server"
+            },
+            {
+                "id": "storage",
+                "label": "Storage",
+                "description": "This feature is not implemented yet.",
+                "icon": "database"
+            },
+            {
+                "id": "about",
+                "label": "About",
+                "description": "This feature is not implemented yet.",
+                "icon": "info"
+            }
+        ]
+    },
+    "proxy": {
+        "title": "Proxy",
+        "searchPlaceholder": "Search proxies...",
+        "searchAria": "Search proxies",
+        "add": "Add proxy",
+        "refresh": "Refresh",
+        "clear": "Clear search",
+        "start": "Start",
+        "stop": "Stop",
+        "rowSelect": "Select ",
+        "selectAll": "Select all rows",
+        "actions": "Actions for ",
+        "columns": {
+            "name": "Name",
+            "target": "Target",
+            "status": "Status",
+            "updated": "Updated"
+        },
+        "action": {
+            "edit": "Edit",
+            "inspect": "Inspect",
+            "delete": "Delete",
+            "status": "Status",
+            "application": "Application"
+        },
+        "statusLabel": {
+            "running": "Running",
+            "stopped": "Stopped",
+            "error": "Error",
+            "exception": "Exception"
+        },
+        "applicationLabel": {
+            "chrome": "Chrome",
+            "edge": "Edge",
+            "firefox": "Firefox"
+        },
+        "empty": "No proxies match your search.",
+        "rowsPerPage": "Rows per page",
+        "previousPage": "Previous page",
+        "nextPage": "Next page",
+        "sheetAdd": "Add Proxy",
+        "sheetEdit": "Edit Proxy",
+        "rules": "Rules",
+        "cancel": "Cancel",
+        "save": "Save",
+        "saved": "Proxy saved",
+        "updated": "Proxy updated",
+        "deleted": "Deleted ",
+        "inspected": "Inspect ",
+        "refreshed": "Proxies refreshed",
+        "started": "Proxies started",
+        "stopped": "Proxies stopped",
+        "rulesSaved": "Rules saved",
+        "rulesRefreshed": "Rules refreshed",
+        "actionLabel": {
+            "start": "Start",
+            "stop": "Stop",
+            "restart": "Restart",
+            "reload": "Reload"
+        }
+    },
+    "records": {
+        "title": "Records",
+        "searchPlaceholder": "Search records...",
+        "searchAria": "Search records",
+        "refresh": "Refresh",
+        "clear": "Clear search",
+        "rowSelect": "Select ",
+        "selectAll": "Select all rows",
+        "actions": "Actions for ",
+        "columns": {
+            "name": "Name",
+            "target": "Target",
+            "status": "Status",
+            "updated": "Updated"
+        },
+        "action": {
+            "edit": "Edit",
+            "inspect": "Inspect",
+            "delete": "Delete"
+        },
+        "statusLabel": {
+            "running": "Running",
+            "stopped": "Stopped",
+            "error": "Error",
+            "exception": "Exception"
+        },
+        "empty": "No records match your search.",
+        "rowsPerPage": "Rows per page",
+        "previousPage": "Previous page",
+        "nextPage": "Next page",
+        "sheetEdit": "Edit Record",
+        "content": "Content",
+        "cancel": "Cancel",
+        "save": "Save",
+        "saved": "Record saved",
+        "deleted": "Deleted ",
+        "inspected": "Inspect ",
+        "refreshed": "Records refreshed",
+        "contentSaved": "Content saved",
+        "contentRefreshed": "Content refreshed"
+    },
+    "capture": {
+        "title": "Capture",
+        "targetAria": "Capture target",
+        "selectPlaceholder": "Select a proxy",
+        "frameTitle": "Capture",
+        "emptyTitle": "No capture target",
+        "emptyHint": "Select a running proxy that exposes a web endpoint."
+    },
+    "logs": {
+        "title": "Logs",
+        "searchPlaceholder": "Search logs...",
+        "searchAria": "Search logs",
+        "levelAria": "Level",
+        "levelPlaceholder": "Level",
+        "allLevels": "All levels",
+        "timeAria": "Time range",
+        "timePlaceholder": "Time",
+        "commandPlaceholder": "Type a command and press Enter",
+        "commandAria": "Command",
+        "commandExecuted": "command executed: ",
+        "levels": [
+            {
+                "value": "debug",
+                "label": "Debug"
+            },
+            {
+                "value": "info",
+                "label": "Info"
+            },
+            {
+                "value": "warn",
+                "label": "Warn"
+            },
+            {
+                "value": "error",
+                "label": "Error"
+            }
+        ],
+        "timeRanges": [
+            {
+                "value": "all",
+                "label": "All time"
+            },
+            {
+                "value": "5m",
+                "label": "Last 5 min"
+            },
+            {
+                "value": "15m",
+                "label": "Last 15 min"
+            },
+            {
+                "value": "1h",
+                "label": "Last hour"
+            }
+        ]
+    },
+    "automation": {
+        "title": "Automation",
+        "tabNew": "New",
+        "tabWorkflow": "Workflow",
+        "empty": "This tab is not implemented yet."
+    }
+}

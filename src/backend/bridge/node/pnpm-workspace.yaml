@@ -1,0 +1,4 @@
+# pnpm 设置 (pnpm 11 起从 package.json 迁到这里, 保持配置独立)
+# esbuild 的安装脚本负责校验/链接平台二进制; 显式放行以免安装被策略拦下。
+allowBuilds:
+  esbuild: true

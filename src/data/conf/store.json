@@ -1,0 +1,24 @@
+{
+    "meta": {
+        "namespace": "conf/store"
+    },
+    "root": ".",
+    "shards": 4,
+    "inflight": 8,
+    "queue": 256,
+    "timeoutMs": 10000,
+    "maxSize": 67108864,
+    "database": {
+        "driver": "sqlite",
+        "path": "database/automan.db",
+        "shards": 1,
+        "inflight": 1,
+        "queue": 128,
+        "timeoutMs": 10000,
+        "busyTimeoutMs": 5000,
+        "journal": "wal",
+        "slowMs": 200,
+        "maxRows": 10000,
+        "logArgs": false
+    }
+}

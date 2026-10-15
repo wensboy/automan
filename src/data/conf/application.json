@@ -1,0 +1,8 @@
+{
+    "meta": {
+        "namespace": "conf/application"
+    },
+    "name": "automan",
+    "description": "An automated application for environmental agents.",
+    "version": "0.0.1"
+}

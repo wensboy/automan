@@ -1,0 +1,31 @@
+{
+    "appearence": {
+        "mode": {
+            "key": "appearence.mode",
+            "label": "Mode",
+            "description": "Theme mode: auto follows the system.",
+            "type": "enum<string>",
+            "options": [
+                "auto",
+                "light",
+                "dark"
+            ]
+        }
+    },
+    "theme": {},
+    "proxy": {},
+    "automation": {},
+    "general": {
+        "language": {
+            "key": "general.language",
+            "label": "Language",
+            "description": "Interface language.",
+            "type": "enum<string>",
+            "options": [
+                "English",
+                "Chinese"
+            ]
+        }
+    },
+    "advanced": {}
+}

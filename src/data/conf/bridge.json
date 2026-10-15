@@ -1,0 +1,21 @@
+{
+    "meta": {
+        "namespace": "conf/bridge"
+    },
+    "node": {
+        "enable": true,
+        "sock": "bridge/node.sock",
+        "codec": "json",
+        "maxMessageBytes": 4194304,
+        "handshakeTimeoutMs": 5000,
+        "heartbeatMs": 15000,
+        "heartbeatGraceMs": 5000,
+        "token": "",
+        "restart": "none",
+        "restartMax": 32,
+        "command": "",
+        "args": [],
+        "dir": "",
+        "env": []
+    }
+}

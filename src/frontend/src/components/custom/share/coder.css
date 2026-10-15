@@ -1,0 +1,26 @@
+/*
+ * codejar + Prism 的 token 配色: 只映射到 index.css 的语法 token, 不写死颜色。
+ * 选择器带 [data-slot="coder"] 前缀 (coder.tsx 的根节点), 作用域限定在编辑器内。
+ */
+[data-slot="coder"] .token.property {
+  color: var(--syntax-key);
+}
+
+[data-slot="coder"] .token.string {
+  color: var(--syntax-string);
+}
+
+[data-slot="coder"] .token.number,
+[data-slot="coder"] .token.boolean,
+[data-slot="coder"] .token.null {
+  color: var(--syntax-number);
+}
+
+[data-slot="coder"] .token.comment {
+  color: var(--syntax-comment);
+}
+
+[data-slot="coder"] .token.punctuation,
+[data-slot="coder"] .token.operator {
+  color: var(--muted-foreground);
+}
