@@ -11,6 +11,7 @@ import (
 	"github.com/wensboy/automan/backend/domain/config"
 	"github.com/wensboy/automan/backend/domain/context"
 	"github.com/wensboy/automan/backend/domain/event"
+	domainlog "github.com/wensboy/automan/backend/domain/log"
 	"github.com/wensboy/automan/backend/internal/cast"
 	"github.com/wensboy/automan/backend/internal/kits/configkit"
 	"github.com/wensboy/automan/backend/internal/kits/enginekit"
@@ -49,7 +50,11 @@ func New(opts ...Option) *Engine {
 func (e *Engine) Name() string { return "window" }
 
 // Deps 实现 engine.Engine.
-func (e *Engine) Deps() []string { return []string{"config", "eventbus"} }
+// Deps 声明依赖: config/eventbus 用于取配置与订阅事件; log 用于订阅日志二级总线
+// (注册表按依赖拓扑排序且 Init/Start 成对执行, 漏声明会让本引擎的 Init 早于 log 的 Init,
+//
+//	此时 log 的 stream out 尚未创建 -> SubscribeStream 失败并中断整个启动链)。
+func (e *Engine) Deps() []string { return []string{"config", "eventbus", "log"} }
 
 // Init 订阅运行态变更与外部重载, 待窗口就绪后转发给前端.
 func (e *Engine) Init(ctx context.Context) error {
@@ -61,11 +66,26 @@ func (e *Engine) Init(ctx context.Context) error {
 	unsubReloaded := ebus.Subscribe(event.TopicSettingsReloaded, e.forwardSettingsReloaded)
 	unsubLoaded := ebus.Subscribe(event.TopicSettingsLoaded, e.forwardSettingsLoaded)
 	unsubSaved := ebus.Subscribe(event.TopicSettingsSaved, e.forwardSettingsSaved)
+
+	// 日志流: 订阅日志引擎的二级总线(不经主总线, 避免高频日志卷入所有订阅者),
+	// 批量转成前端事件 "log:stream" (见 docs/design/v16.md 第 3/6 节)。
+	unsubLog := func() {}
+	if logger, ok := enginekit.Of[domainlog.Logger](ctx, "log"); ok {
+		if streamer, ok := logger.(domainlog.Streamer); ok {
+			off, err := streamer.SubscribeStream(e.forwardLogStream)
+			if err != nil {
+				return err
+			}
+			unsubLog = off
+		}
+	}
+
 	e.unsub = func() {
 		unsubChanged()
 		unsubReloaded()
 		unsubLoaded()
 		unsubSaved()
+		unsubLog()
 	}
 	return nil
 }

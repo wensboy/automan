@@ -1,4 +1,4 @@
-// Package log 实现统一日志引擎: 投递式消息 + 多 out 分发 + log.sync 落盘(经 store).
+// Package log 实现统一日志引擎: 投递式消息 + 多 out 分发 + 流式 out(二级总线) + log.sync 落盘.
 package log
 
 import (
@@ -30,25 +30,30 @@ const (
 	defaultBatch        = 256
 	defaultConsoleLevel = domainlog.LevelInfo
 	defaultFileLevel    = domainlog.LevelDebug
+
+	defaultMaxSizeMiB      = 8
+	defaultStreamInterval  = 120 * time.Millisecond
+	defaultStreamBatch     = 128
+	defaultStreamQueueSize = 2048
+
+	mib = 1 << 20
 )
 
 // Engine 是统一日志引擎, 实现 domain/log 的 Logger/Registrar/Statser.
 type Engine struct {
 	mu     sync.RWMutex
-	outs   []namedOut
+	outs   []domainlog.Out
 	sealed bool
 
 	ebus  event.Bus
 	unsub func()
 
+	disk   *disk   // 供启动期 fs 处理
+	stream *stream // 流式 out: 持有二级总线
+
 	delivered atomic.Uint64
 	dropped   atomic.Uint64
 	flushed   atomic.Uint64
-}
-
-type namedOut struct {
-	name string
-	out  domainlog.Out
 }
 
 // New 创建日志引擎.
@@ -60,7 +65,7 @@ func (e *Engine) Name() string { return "log" }
 // Deps 实现 engine.Engine.
 func (e *Engine) Deps() []string { return []string{"config", "eventbus", "store"} }
 
-// Init 解析参数, 注册内置 out 并订阅落盘事件.
+// Init 解析参数, 注册内置 out(console/disk/stream)并订阅落盘事件.
 func (e *Engine) Init(ctx context.Context) error {
 	provider, ok := enginekit.Of[config.Provider](ctx, "config")
 	if !ok {
@@ -88,17 +93,29 @@ func (e *Engine) Init(ctx context.Context) error {
 		return err
 	}
 
-	if err := e.Register("console", newConsole(os.Stderr, consoleLevel)); err != nil {
+	if err := e.Register(newConsole(os.Stderr, consoleLevel)); err != nil {
 		return err
 	}
-	disk := newDisk(store, diskConfig{
-		path:   path.Join(fallback.String(params.Dir, defaultDir), fallback.String(params.File, defaultFile)),
-		buffer: fallback.Int(params.Buffer, defaultBuffer),
-		batch:  fallback.Int(params.Batch, defaultBatch),
-		level:  fileLevel,
-		report: e.report,
+
+	e.disk = newDisk(store, diskConfig{
+		path:    path.Join(fallback.String(params.Dir, defaultDir), fallback.String(params.File, defaultFile)),
+		buffer:  fallback.Int(params.Buffer, defaultBuffer),
+		batch:   fallback.Int(params.Batch, defaultBatch),
+		level:   fileLevel,
+		maxSize: int64(fallback.Int(params.MaxSize, defaultMaxSizeMiB)) * mib,
+		report:  e.report,
 	})
-	if err := e.Register("disk", disk); err != nil {
+	if err := e.Register(e.disk); err != nil {
+		return err
+	}
+
+	e.stream = newStream(streamConfig{
+		interval: time.Duration(fallback.Int(params.StreamIntervalMs, int(defaultStreamInterval/time.Millisecond))) * time.Millisecond,
+		batch:    fallback.Int(params.StreamBatch, defaultStreamBatch),
+		queue:    fallback.Int(params.StreamQueue, defaultStreamQueueSize),
+		report:   e.report,
+	})
+	if err := e.Register(e.stream); err != nil {
 		return err
 	}
 
@@ -107,37 +124,63 @@ func (e *Engine) Init(ctx context.Context) error {
 	return nil
 }
 
-// Start 封口: 之后不再接受 out 注册.
+// Start 封口(之后不再接受 out 注册), 做日志文件的启动期 fs 处理, 并开始流式转发.
 func (e *Engine) Start(context.Context) error {
 	e.mu.Lock()
 	e.sealed = true
 	e.mu.Unlock()
+
+	// 启动期 fs 处理: 建目录 / 建文件 / 检查体积(见 v16 第 8 节)
+	if e.disk != nil {
+		if err := e.disk.prepare(); err != nil {
+			return fmt.Errorf("log: prepare file: %w", err)
+		}
+	}
+	// 只转发"程序运行启动后"的日志: 此前入队的记录在 start 内被清空
+	if e.stream != nil {
+		e.stream.start()
+	}
 	return nil
 }
 
-// Stop 注销订阅并做末次落盘: 关机不丢日志 (生命周期动作, 非定时策略).
+// Stop 停止流式转发并做末次落盘: 关机不丢日志(生命周期动作, 非定时策略).
 func (e *Engine) Stop(context.Context) error {
 	if e.unsub != nil {
 		e.unsub()
+	}
+	if e.stream != nil {
+		e.stream.shutdown()
 	}
 	e.flush()
 	return nil
 }
 
-// Register 实现 domain/log.Registrar, 仅允许 Start 之前注册.
-func (e *Engine) Register(name string, out domainlog.Out) error {
+// Register 实现 domain/log.Registrar: 注册 out (key 取自 out.Name()), 仅允许 Start 之前注册.
+func (e *Engine) Register(out domainlog.Out) error {
+	if out == nil {
+		return errors.New("log: nil out")
+	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if e.sealed {
-		return fmt.Errorf("log: sealed, cannot register %q", name)
+		return fmt.Errorf("log: sealed, cannot register %q", out.Name())
 	}
-	for _, o := range e.outs {
-		if o.name == name {
-			return fmt.Errorf("log: duplicate out %q", name)
+	for _, existing := range e.outs {
+		if existing.Name() == out.Name() {
+			return fmt.Errorf("log: duplicate out %q", out.Name())
 		}
 	}
-	e.outs = append(e.outs, namedOut{name: name, out: out})
+	e.outs = append(e.outs, out)
 	return nil
+}
+
+// SubscribeStream 暴露二级总线: 订阅 stream out 的批量记录, 返回取消函数.
+// 订阅者由冲刷 goroutine 同步调用, 必须快速返回; 单个订阅者异常会被隔离.
+func (e *Engine) SubscribeStream(fn func([]domainlog.Record)) (func(), error) {
+	if e.stream == nil {
+		return nil, errors.New("log: stream out unavailable")
+	}
+	return e.stream.Subscribe(fn), nil
 }
 
 // Stats 实现 domain/log.Statser.
@@ -146,8 +189,8 @@ func (e *Engine) Stats() domainlog.Stats {
 	outs := e.outs
 	e.mu.RUnlock()
 	buffered := 0
-	for _, o := range outs {
-		if b, ok := o.out.(domainlog.Buffer); ok {
+	for _, out := range outs {
+		if b, ok := out.(domainlog.Buffer); ok {
 			buffered += b.Buffered()
 		}
 	}
@@ -164,8 +207,8 @@ func (e *Engine) flush() {
 	e.mu.RLock()
 	outs := e.outs
 	e.mu.RUnlock()
-	for _, o := range outs {
-		f, ok := o.out.(domainlog.Flusher)
+	for _, out := range outs {
+		f, ok := out.(domainlog.Flusher)
 		if !ok {
 			continue
 		}
@@ -176,6 +219,7 @@ func (e *Engine) flush() {
 }
 
 // report 汇总 out 的异常: 只有 overflow 真正丢数据; flush 失败仅上报 (记录仍留在缓冲).
+// 注意: stream 的丢弃会另以一条 warn 记录随批下发(见 stream.flush), 这里只做计数与内部广播.
 func (e *Engine) report(reason event.LogDropReason, n int) {
 	if n <= 0 {
 		return

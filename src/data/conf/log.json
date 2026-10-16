@@ -7,5 +7,9 @@
     "buffer": 2048,
     "batch": 256,
     "consoleLevel": "info",
-    "fileLevel": "debug"
+    "fileLevel": "debug",
+    "maxSize": 8,
+    "streamIntervalMs": 120,
+    "streamBatch": 128,
+    "streamQueue": 2048
 }

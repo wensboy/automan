@@ -5,7 +5,7 @@ import { cn } from "cn"
 
 import RichInput from "@/components/custom/share/rich-input"
 
-import type { LogLine } from "@/mock/logs"
+import { formatLogTime, type LogLine } from "@/components/custom/logs/model"
 
 import "@xterm/xterm/css/xterm.css"
 
@@ -23,7 +23,8 @@ const levelColor: Record<LogLine["level"], string> = {
 const RESET = "\x1b[0m"
 
 function formatLine(line: LogLine): string {
-  const time = new Date(line.time).toTimeString().slice(0, 8)
+  // 含年月日 (本地时区), 见 logs/model.ts 的 formatLogTime
+  const time = formatLogTime(line.time)
   const level = line.level.toUpperCase().padEnd(5)
   const prefix = levelColor[line.level]
   return `${time} ${prefix}${level}${RESET} ${line.message}`

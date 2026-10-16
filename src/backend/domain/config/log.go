@@ -10,6 +10,12 @@ type Log struct {
 	Batch        int    `json:"batch"`
 	ConsoleLevel string `json:"consoleLevel"`
 	FileLevel    string `json:"fileLevel"`
+	// MaxSize 是日志文件最大体积 (MiB): 文件按该上限循环, 超出时保留最新一段.
+	MaxSize int `json:"maxSize"`
+	// Stream 相关: 送往前端终端的批量窗口与缓冲上限 (见 docs/design/v16.md 第 3 节).
+	StreamIntervalMs int `json:"streamIntervalMs"`
+	StreamBatch      int `json:"streamBatch"`
+	StreamQueue      int `json:"streamQueue"`
 }
 
 // LogKey 取整个 log 配置 (namespace 根).

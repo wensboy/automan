@@ -1,22 +1,17 @@
 import * as React from "react"
+import { Events } from "@wailsio/runtime"
 
 import LogFilters from "@/components/custom/logs/filters"
+import { logRangeMs, toLogLines, type LogLevel, type LogLine, type LogTimeRange, type StreamRecord } from "@/components/custom/logs/model"
 import LogTerminal from "@/components/custom/logs/terminal"
-import {
-  createLogLine,
-  logRangeMs,
-  type LogLevel,
-  type LogLine,
-  type LogTimeRange,
-} from "@/mock/logs"
 
-const WRITE_INTERVAL_MS = 700
+/** 本地行缓冲上限 (超出丢弃最旧)。 */
 const MAX_LINES = 500
 
 /**
  * 日志 (nav-Main: Logs): 头部筛选 + 终端显示 + 命令输入。
  * 页面持有数据与业务状态 (日志缓冲 / 搜索 / 级别 / 时间范围), 组件只负责渲染。
- * dev 阶段日志由定时器持续写入, 接真实日志源后替换这一处即可。
+ * 数据来自后端日志引擎的二级总线事件 "log:stream" (只含程序运行启动后的日志)。
  */
 export default function Logs() {
   const [lines, setLines] = React.useState<LogLine[]>([])
@@ -26,14 +21,17 @@ export default function Logs() {
 
   React.useEffect(() => {
     let nextId = 0
-    const timer = window.setInterval(() => {
-      nextId += 1
+    // 后端已按批量窗口下发(默认 120ms), 这里只做追加与上限裁剪, 不再逐条渲染
+    return Events.On("log:stream", (event) => {
+      const records = event.data as StreamRecord[] | undefined
+      if (!Array.isArray(records) || records.length === 0) return
       setLines((prev) => {
-        const next = [...prev, createLogLine(nextId)]
+        const appended = toLogLines(records, nextId)
+        nextId += appended.length
+        const next = [...prev, ...appended]
         return next.length > MAX_LINES ? next.slice(next.length - MAX_LINES) : next
       })
-    }, WRITE_INTERVAL_MS)
-    return () => window.clearInterval(timer)
+    })
   }, [])
 
   const visible = React.useMemo(() => {

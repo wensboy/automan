@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { LogLevel, LogTimeRange } from "@/mock/logs"
+import type { LogLevel, LogTimeRange } from "@/components/custom/logs/model"
 import { useStatic } from "@/components/custom/share/provider/static-provider"
 
 /** 日志页头部: 搜索 + 级别 + 时间范围 (纯展示, 状态由页面持有)。 */
