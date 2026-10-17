@@ -2,7 +2,15 @@ import { Events } from "@wailsio/runtime"
 
 import { SettingsService } from "../../bindings/github.com/wensboy/automan/backend/api/web"
 import { staticStore } from "@/lib/static-data"
-import { parseFieldType, type SettingsField, type SettingsGroup, type SettingsStatic, type SettingsValue, type SettingsValues } from "@/static/types/settings"
+import {
+  parseFieldType,
+  type SettingsField,
+  type SettingsFieldEntry,
+  type SettingsGroup,
+  type SettingsStatic,
+  type SettingsValue,
+  type SettingsValues,
+} from "@/static/types/settings"
 
 /**
  * 设置的读写层 (前端唯一出口)。
@@ -16,13 +24,44 @@ import { parseFieldType, type SettingsField, type SettingsGroup, type SettingsSt
  */
 export function settingsGroups(): SettingsGroup[] {
   const raw = (staticStore.view().Value("settings") ?? {}) as unknown as SettingsStatic
-  return Object.entries(raw).flatMap(([id, fields]) => {
+  return Object.entries(raw).flatMap(([id, node]) => {
     const meta = settingsGroupMeta(id)
-    const parsed = Object.values(fields).filter(
-      (field): field is SettingsField => Boolean(field) && parseFieldType(field.type) !== undefined,
-    )
-    return [{ id, label: meta.label, icon: meta.icon, fields: parsed }]
+    return [{ id, label: meta.label, icon: meta.icon, fields: collectFields(node) }]
   })
+}
+
+/** 判断一个节点是否是配置项(有可解析的 type), 用于与"子分组"区分。 */
+function isFieldNode(node: unknown): boolean {
+  if (!node || typeof node !== "object" || Array.isArray(node)) return false
+  const type = (node as { type?: unknown }).type
+  return typeof type === "string" && parseFieldType(type) !== undefined
+}
+
+/**
+ * 递归收集分区下的配置项 —— 允许分组嵌套(例 `general.session.expirationS`),
+ * 层级只影响组织方式(配置项 key 始终是完整点号键); 子分组键记进 `trail`, 供 UI 用 `>` 展示。
+ */
+function collectFields(node: unknown, trail: string[] = []): SettingsFieldEntry[] {
+  if (!node || typeof node !== "object" || Array.isArray(node)) return []
+  const fields: SettingsFieldEntry[] = []
+  for (const [name, value] of Object.entries(node as Record<string, unknown>)) {
+    if (isFieldNode(value)) {
+      fields.push({ ...(value as SettingsField), trail })
+      continue
+    }
+    fields.push(...collectFields(value, [...trail, name]))
+  }
+  return fields
+}
+
+/** 取出 number 字段的 [min, max]: 仅当 `range` 恰为两个数字时有效, 否则视为无边界。 */
+export function rangeBounds(field: SettingsField): { min?: number; max?: number } {
+  if (field.type !== "number") return {}
+  const range = Array.isArray(field.range) ? field.range : []
+  if (range.length !== 2) return {}
+  const [min, max] = range
+  if (typeof min !== "number" || typeof max !== "number") return {}
+  return { min, max }
 }
 
 /** 分区 -> 配置项 的查找表 (按 key 取字段描述)。 */
@@ -53,9 +92,11 @@ export function parseFieldValue(field: SettingsField, raw: unknown): SettingsVal
       return typeof raw === "boolean" ? raw : undefined
     case "string":
       return typeof raw === "string" ? raw : undefined
-    case "number":
+    case "number": {
       if (typeof raw !== "number" || Number.isNaN(raw)) return undefined
-      return clamp(raw, field.type === "number" ? field.min : undefined, field.type === "number" ? field.max : undefined)
+      const { min, max } = rangeBounds(field)
+      return clamp(raw, min, max)
+    }
     case "enum": {
       if (!isScalarOf(type.of, raw)) return undefined
       const options = (field as { options?: unknown[] }).options ?? []

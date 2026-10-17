@@ -25,6 +25,27 @@
                 "English",
                 "Chinese"
             ]
+        },
+        "session": {
+            "expirationS": {
+                "key": "general.session.expirationS",
+                "label": "Session.Expiration",
+                "description": "Session expiration time in seconds.",
+                "type": "number",
+                "range": []
+            },
+            "resumeOnStart": {
+                "key": "general.session.resumeOnStart",
+                "label": "Session.ResumeOnStart",
+                "description": "Restore the last session when the app starts.",
+                "type": "bool"
+            },
+            "slidingExpire": {
+                "key": "general.session.slidingExpire",
+                "label": "Session.SlidingExpire",
+                "description": "Extend the session on every check; off means a fixed lifetime.",
+                "type": "bool"
+            }
         }
     },
     "advanced": {}

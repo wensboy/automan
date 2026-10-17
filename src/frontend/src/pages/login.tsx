@@ -34,13 +34,20 @@ function LoginForm({ className, ...props }: React.ComponentProps<"div">) {
   const [username, setUsername] = React.useState("")
   const [password, setPassword] = React.useState("")
 
-  const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const [pending, setPending] = React.useState(false)
+
+  const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!signIn(username.trim(), password)) {
-      toast.error(staticValue("auth.login.invalid") ?? "")
-      return
+    setPending(true)
+    try {
+      await signIn(username.trim(), password)
+      navigate("/", { replace: true })
+    } catch (error) {
+      // 后端给出明确原因(用户不存在 / 口令错误), 原样提示
+      toast.error(error instanceof Error ? error.message : String(error))
+    } finally {
+      setPending(false)
     }
-    navigate("/", { replace: true })
   }
 
   return (
@@ -57,11 +64,11 @@ function LoginForm({ className, ...props }: React.ComponentProps<"div">) {
                 </p>
               </div>
               <Field>
-                <FieldLabel htmlFor="email">{staticValue("auth.shared.email")}</FieldLabel>
+                <FieldLabel htmlFor="username">{staticValue("auth.shared.username")}</FieldLabel>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder={staticValue("auth.shared.emailPlaceholder")}
+                  id="username"
+                  type="text"
+                  placeholder={staticValue("auth.shared.usernamePlaceholder")}
                   autoComplete="username"
                   required
                   value={username}
@@ -88,7 +95,7 @@ function LoginForm({ className, ...props }: React.ComponentProps<"div">) {
                 />
               </Field>
               <Field>
-                <Button type="submit">{staticValue("auth.login.submit")}</Button>
+                <Button type="submit" disabled={pending}>{staticValue("auth.login.submit")}</Button>
               </Field>
               <FieldSeparator className="*:data-[slot=field-separator-content]:bg-card">
                 {staticValue("auth.shared.orContinue")}
@@ -131,7 +138,7 @@ function LoginForm({ className, ...props }: React.ComponentProps<"div">) {
             <img
               src="/auth-bg.jpg"
               alt={staticValue("auth.shared.imageAlt")}
-              className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
+              className="absolute inset-0 h-full w-full object-cover dark:brightness-75"
             />
           </div>
         </CardContent>

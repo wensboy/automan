@@ -10,7 +10,10 @@
     "proxy": {
         "autoStart": false,
         "timeout": 30,
-        "bypass": ["localhost", "127.0.0.1"],
+        "bypass": [
+            "localhost",
+            "127.0.0.1"
+        ],
         "userAgent": ""
     },
     "automation": {
@@ -20,7 +23,12 @@
     },
     "general": {
         "language": "English",
-        "startupPage": "/"
+        "startupPage": "/",
+        "session": {
+            "expirationS": 7200,
+            "resumeOnStart": true,
+            "slidingExpire": true
+        }
     },
     "advanced": {
         "watchMs": 2000,

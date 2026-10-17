@@ -3,7 +3,7 @@ import { createHashRouter, Navigate, RouterProvider } from "react-router"
 
 import AuthGuard from "@/components/custom/share/auth-guard"
 import AppLayout from "@/layouts/app"
-import { hasSession } from "@/lib/auth"
+import { storedToken } from "@/lib/auth"
 import Automation from "@/pages/automation"
 import Capture from "@/pages/capture"
 import Home from "@/pages/home"
@@ -16,7 +16,7 @@ import Signup from "@/pages/signup"
 
 /** 仅未登录可见 (登录/注册); 已登录直接回主页, 避免重复登录。 */
 function GuestOnly({ children }: { children: ReactNode }) {
-  return hasSession() ? <Navigate to="/" replace /> : <>{children}</>
+  return storedToken() ? <Navigate to="/" replace /> : <>{children}</>
 }
 
 /**

@@ -67,6 +67,12 @@ func (e *Engine) Init(ctx context.Context) error {
 	unsubLoaded := ebus.Subscribe(event.TopicSettingsLoaded, e.forwardSettingsLoaded)
 	unsubSaved := ebus.Subscribe(event.TopicSettingsSaved, e.forwardSettingsSaved)
 
+	// 会话事件: 注册/登录/登出/到期 -> 前端 session:*
+	unsubSignup := ebus.Subscribe(event.TopicSessionSignup, e.forwardSessionSignup)
+	unsubLogin := ebus.Subscribe(event.TopicSessionLogin, e.forwardSessionLogin)
+	unsubLogout := ebus.Subscribe(event.TopicSessionLogout, e.forwardSessionLogout)
+	unsubExpired := ebus.Subscribe(event.TopicSessionExpired, e.forwardSessionExpired)
+
 	// 日志流: 订阅日志引擎的二级总线(不经主总线, 避免高频日志卷入所有订阅者),
 	// 批量转成前端事件 "log:stream" (见 docs/design/v16.md 第 3/6 节)。
 	unsubLog := func() {}
@@ -85,6 +91,10 @@ func (e *Engine) Init(ctx context.Context) error {
 		unsubReloaded()
 		unsubLoaded()
 		unsubSaved()
+		unsubSignup()
+		unsubLogin()
+		unsubLogout()
+		unsubExpired()
 		unsubLog()
 	}
 	return nil
@@ -184,3 +194,39 @@ var (
 	errConfigUnavailable   = errors.New(`window: engine "config" unavailable`)
 	errEventBusUnavailable = errors.New(`window: engine "eventbus" unavailable`)
 )
+
+// forwardSessionSignup 转发注册事件(前端据此更新登录态).
+func (e *Engine) forwardSessionSignup(payload any) {
+	signup, ok := cast.As[event.SessionSignup](payload)
+	if !ok || e.app == nil {
+		return
+	}
+	e.app.Event.Emit("session:signup", signup.UserID, signup.Username, signup.At)
+}
+
+// forwardSessionLogin 转发登录事件.
+func (e *Engine) forwardSessionLogin(payload any) {
+	login, ok := cast.As[event.SessionLogin](payload)
+	if !ok || e.app == nil {
+		return
+	}
+	e.app.Event.Emit("session:login", login.UserID, login.Username, login.At)
+}
+
+// forwardSessionLogout 转发登出事件.
+func (e *Engine) forwardSessionLogout(payload any) {
+	logout, ok := cast.As[event.SessionLogout](payload)
+	if !ok || e.app == nil {
+		return
+	}
+	e.app.Event.Emit("session:logout", logout.UserID, logout.Username, logout.At)
+}
+
+// forwardSessionExpired 转发会话到期事件(ttlcache 过期钩子).
+func (e *Engine) forwardSessionExpired(payload any) {
+	expired, ok := cast.As[event.SessionExpired](payload)
+	if !ok || e.app == nil {
+		return
+	}
+	e.app.Event.Emit("session:expired", expired.UserID, expired.Username, expired.At)
+}

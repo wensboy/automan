@@ -30,11 +30,13 @@ export default function SignupPage() {
 /** 注册表单: 校验两次密码后写入会话 token 并进入应用。 */
 function SignupForm({ className, ...props }: React.ComponentProps<"div">) {
   const navigate = useNavigate()
-  const [email, setEmail] = React.useState("")
+  const [username, setUsername] = React.useState("")
   const [password, setPassword] = React.useState("")
   const [confirmPassword, setConfirmPassword] = React.useState("")
 
-  const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const [pending, setPending] = React.useState(false)
+
+  const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (password.length < 8) {
       toast.error(staticValue("auth.signup.passwordTooShort") ?? "")
@@ -44,16 +46,24 @@ function SignupForm({ className, ...props }: React.ComponentProps<"div">) {
       toast.error(staticValue("auth.signup.passwordMismatch") ?? "")
       return
     }
-    signUp(email.trim())
-    toast.success(staticValue("auth.signup.created") ?? "")
-    navigate("/", { replace: true })
+    setPending(true)
+    try {
+      // 账号字段即登录名(username); 昵称留空, 由 account 里再改
+      await signUp({ username: username.trim(), password, nickname: "" })
+      toast.success(staticValue("auth.signup.created") ?? "")
+      navigate("/", { replace: true })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error))
+    } finally {
+      setPending(false)
+    }
   }
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card className="overflow-hidden p-0">
         <CardContent className="grid p-0 md:grid-cols-2">
-          <form className="p-6 md:p-8" onSubmit={onSubmit}>
+          <form className="p-6 md:p-8" onSubmit={onSubmit} noValidate>
             <FieldGroup>
               <div className="flex flex-col items-center gap-2 text-center">
                 <h1 className="text-2xl font-bold">{staticValue("auth.signup.title")}</h1>
@@ -62,15 +72,15 @@ function SignupForm({ className, ...props }: React.ComponentProps<"div">) {
                 </p>
               </div>
               <Field>
-                <FieldLabel htmlFor="email">{staticValue("auth.shared.email")}</FieldLabel>
+                <FieldLabel htmlFor="username">{staticValue("auth.shared.username")}</FieldLabel>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder={staticValue("auth.shared.emailPlaceholder")}
-                  autoComplete="email"
+                  id="username"
+                  type="text"
+                  placeholder={staticValue("auth.shared.usernamePlaceholder")}
+                  autoComplete="username"
                   required
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
                 />
               </Field>
               <Field>
@@ -102,7 +112,7 @@ function SignupForm({ className, ...props }: React.ComponentProps<"div">) {
                 </Field>
               </Field>
               <Field>
-                <Button type="submit">{staticValue("auth.signup.submit")}</Button>
+                <Button type="submit" disabled={pending}>{staticValue("auth.signup.submit")}</Button>
               </Field>
               <FieldSeparator className="*:data-[slot=field-separator-content]:bg-card">
                 {staticValue("auth.shared.orContinue")}
@@ -145,7 +155,7 @@ function SignupForm({ className, ...props }: React.ComponentProps<"div">) {
             <img
               src="/auth-bg.jpg"
               alt={staticValue("auth.shared.imageAlt")}
-              className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
+              className="absolute inset-0 h-full w-full object-cover dark:brightness-75"
             />
           </div>
         </CardContent>

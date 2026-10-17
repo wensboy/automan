@@ -41,10 +41,12 @@ export type SettingsStringField = SettingsFieldBase & { type: "string" }
 
 export type SettingsNumberField = SettingsFieldBase & {
   type: "number"
-  /** 给定时用滑杆并夹紧取值范围; 缺省时退化为数字输入。 */
-  min?: number
-  max?: number
-  step?: number
+  /**
+   * `range` 决定数字项的显示与操作形式(**只有两种情况**):
+   *   `[]`         -> 手动输入(input), 调用时解析文本;
+   *   `[min, max]` -> 滑杆(Slider), 可拉动范围 [min, max], 同时用于取值夹紧。
+   */
+  range: number[]
 }
 
 export type SettingsEnumField<T extends SettingsScalarType = SettingsScalarType> =
@@ -91,11 +93,20 @@ export type SettingsValue = string | number | boolean | string[] | number[] | bo
 export type SettingsValues = Record<string, SettingsValue>
 
 /** 一个分区 (顶层键) 及其配置项 —— 由 settings.json 组装而成。 */
+/**
+ * 收集后的配置项: 在原字段上补齐"所在子分组路径", 供 UI 用 `>` 表达层级。
+ * 例 `general.session.expirationS` -> trail = ["session"]。
+ */
+export type SettingsFieldEntry = SettingsField & {
+  trail: string[]
+}
+
 export type SettingsGroup = {
   id: string
   label: string
   icon: string
-  fields: SettingsField[]
+  /** 展开后的配置项(含嵌套子分组, 顺序与 json 一致)。 */
+  fields: SettingsFieldEntry[]
 }
 
 /** settings.json 的原始形态: 分区 -> 配置项名 -> 字段描述。 */

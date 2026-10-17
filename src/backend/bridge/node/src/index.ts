@@ -1,9 +1,9 @@
-import { backoffMs, closed, connect, send, sleep } from './bridge/client.ts';
-import { handshake } from './bridge/handshake.ts';
-import { startLiveness } from './bridge/liveness.ts';
-import { log } from './bridge/log.ts';
-import { startLoop } from './bridge/loop.ts';
-import { kind, name } from './bridge/protocol.ts';
+import { backoffMs, closed, connect, send, sleep } from './ipc/client.ts';
+import { handshake } from './ipc/handshake.ts';
+import { startLiveness } from './ipc/liveness.ts';
+import { log } from './ipc/log.ts';
+import { startLoop } from './ipc/loop.ts';
+import { kind, name } from './ipc/protocol.ts';
 import { parseConfig, type Config } from './config.ts';
 import { handlers } from './service/index.ts';
 

@@ -13,7 +13,10 @@ import (
 	domainconfig "github.com/wensboy/automan/backend/domain/config"
 	"github.com/wensboy/automan/backend/domain/context"
 	"github.com/wensboy/automan/backend/domain/engine"
+	"github.com/wensboy/automan/backend/domain/event"
+	domainlog "github.com/wensboy/automan/backend/domain/log"
 	domainsettings "github.com/wensboy/automan/backend/domain/settings"
+	domainstore "github.com/wensboy/automan/backend/domain/store"
 	bridgeengine "github.com/wensboy/automan/backend/engine/bridge"
 	confengine "github.com/wensboy/automan/backend/engine/config"
 	databaseengine "github.com/wensboy/automan/backend/engine/database"
@@ -29,7 +32,10 @@ import (
 	"github.com/wensboy/automan/backend/internal/kits/schemakit"
 	"github.com/wensboy/automan/backend/internal/kits/srvkit"
 	"github.com/wensboy/automan/backend/internal/registry"
+	serviceproxy "github.com/wensboy/automan/backend/service/proxy"
+	servicesession "github.com/wensboy/automan/backend/service/session"
 	servicesettings "github.com/wensboy/automan/backend/service/settings"
+	serviceuser "github.com/wensboy/automan/backend/service/user"
 )
 
 // Run 组装并执行完整启动链路.
@@ -51,6 +57,9 @@ func Run(mode context.Mode, assets, data fs.FS) error {
 		winengine.WithAssets(assets),
 		winengine.WithServices(
 			application.NewService(apiweb.NewSettingsService(rt)),
+			application.NewService(apiweb.NewProxyService(rt)),
+			application.NewService(apiweb.NewSessionService(rt)),
+			application.NewService(apiweb.NewUserService(rt)),
 		),
 	)
 
@@ -59,7 +68,9 @@ func Run(mode context.Mode, assets, data fs.FS) error {
 		eventbus.New(),
 		storeengine.New(),
 		logengine.New(),
-		databaseengine.New(),
+		databaseengine.New(
+			databaseengine.WithMigrations(data, "data/migrate"),
+		),
 		// 用户文件只承载 schema 声明的键: 程序参数(conf/settings)与运行态键不写进该文件
 		settingsengine.New(settingsengine.WithPersistFilter(func(name string) bool {
 			_, ok := fields[name]
@@ -95,9 +106,11 @@ func Run(mode context.Mode, assets, data fs.FS) error {
 		return err
 	}
 
-	if err := registerServices(rt, fields, defaults); err != nil {
+	cleanup, err := registerServices(rt, fields, defaults)
+	if err != nil {
 		return err
 	}
+	defer cleanup()
 
 	if mode == context.ModeCLI {
 		name, _ := configkit.Get(provider, domainconfig.ApplicationNameKey)
@@ -123,11 +136,45 @@ func registerErrors(provider domainconfig.Provider) error {
 	return apperr.Register(entries)
 }
 
-func registerServices(rt *rtengine.Runtime, fields map[string]schemakit.Field, defaults map[string]any) error {
+func registerServices(rt *rtengine.Runtime, fields map[string]schemakit.Field, defaults map[string]any) (func(), error) {
 	// 设置服务内部持有引擎: 组合根在此解析一次并注入
 	store, ok := enginekit.Of[domainsettings.Store](rt, "settings")
 	if !ok {
-		return errors.New("bootstrap: settings engine unavailable")
+		return nil, errors.New("bootstrap: settings engine unavailable")
 	}
-	return srvkit.Register(rt, servicesettings.Key, servicesettings.New(store, fields, defaults))
+	if err := srvkit.Register(rt, servicesettings.Key, servicesettings.New(store, fields, defaults)); err != nil {
+		return nil, err
+	}
+
+	// 代理数据链路: 走 database 引擎执行 SQL, 经 log 引擎记录操作日志
+	db, ok := enginekit.Of[domainstore.Store](rt, "database")
+	if !ok {
+		return nil, errors.New("bootstrap: database engine unavailable")
+	}
+	logger, ok := enginekit.Of[domainlog.Logger](rt, "log")
+	if !ok {
+		return nil, errors.New("bootstrap: log engine unavailable")
+	}
+	if err := srvkit.Register(rt, serviceproxy.Key, serviceproxy.New(db, logger)); err != nil {
+		return nil, err
+	}
+
+	// 会话与用户: session 直接经 settings engine 读生效配置, user 只管用户数据(两个 srv 互不调用)
+	settingsEngine, ok := enginekit.Of[domainsettings.Store](rt, "settings")
+	if !ok {
+		return nil, errors.New("bootstrap: settings engine unavailable")
+	}
+	ebus, ok := enginekit.Of[event.Bus](rt, "eventbus")
+	if !ok {
+		return nil, errors.New("bootstrap: eventbus engine unavailable")
+	}
+	if err := srvkit.Register(rt, serviceuser.Key, serviceuser.New(db, logger)); err != nil {
+		return nil, err
+	}
+	sessionSrv := servicesession.New(db, settingsEngine, ebus, logger)
+	if err := srvkit.Register(rt, servicesession.Key, sessionSrv); err != nil {
+		sessionSrv.Close()
+		return nil, err
+	}
+	return sessionSrv.Close, nil
 }

@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useNavigate } from "react-router"
 import { PencilIcon, RefreshCwIcon, SaveIcon } from "lucide-react"
 import { toast } from "sonner"
 
@@ -21,6 +22,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useStatic, staticValue } from "@/components/custom/share/provider/static-provider"
+import { ChangePassword } from "../../../../bindings/github.com/wensboy/automan/backend/api/web/sessionservice"
+import { Update as UpdateUser } from "../../../../bindings/github.com/wensboy/automan/backend/api/web/userservice"
+import { clearSession, currentUser, storedToken, updateStoredUser } from "@/lib/auth"
 
 /** 卡片操作行: 从右到左 [编辑(开关) / 保存 / 刷新]; dev 阶段只做反馈, 后续替换为实际行为。 */
 function CardActions({
@@ -78,9 +82,12 @@ export default function AccountDialog({
 }) {
   const { sidebar } = useStatic()
 
-  const [name, setName] = React.useState(sidebar.user.name)
-  const [email, setEmail] = React.useState(sidebar.user.email)
-  const [avatar, setAvatar] = React.useState("/placeholder.svg")
+  // account 是 user 服务的调用方: 资料展示取自当前登录用户, 保存落库
+  const navigate = useNavigate()
+  const me = currentUser()
+  const [nickname, setNickname] = React.useState(me?.nickname || me?.username || sidebar.user.name)
+  const [username, setUsername] = React.useState(me?.username ?? sidebar.user.email)
+  const [avatar, setAvatar] = React.useState("/cool_morty.png")
   const [accountEditing, setAccountEditing] = React.useState(false)
   const [passwordEditing, setPasswordEditing] = React.useState(false)
   const [currentPassword, setCurrentPassword] = React.useState("")
@@ -100,14 +107,46 @@ export default function AccountDialog({
     toast.success(staticValue("sidebar.account.avatarUpdated") ?? "")
   }
 
-  const saveAccount = () => {
-    setAccountEditing(false)
-    toast.success(staticValue("sidebar.account.informationSaved") ?? "")
+  const saveAccount = async () => {
+    if (!me) {
+      toast.error(staticValue("sidebar.account.notSignedIn") ?? "")
+      return
+    }
+    try {
+      // 口令不在这里改(走下面的改密卡片)
+      const updated = await UpdateUser(me.id, { username: username.trim(), nickname: nickname.trim(), password: "" })
+      updateStoredUser(updated)
+      setAccountEditing(false)
+      toast.success(staticValue("sidebar.account.informationSaved") ?? "")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error))
+    }
   }
 
-  const savePassword = () => {
-    setPasswordEditing(false)
-    toast.success(staticValue("sidebar.account.passwordSaved") ?? "")
+  const savePassword = async () => {
+    if (newPassword.length < 8) {
+      toast.error(staticValue("auth.signup.passwordTooShort") ?? "")
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error(staticValue("auth.signup.passwordMismatch") ?? "")
+      return
+    }
+    const token = storedToken()
+    if (!token) {
+      toast.error(staticValue("sidebar.account.notSignedIn") ?? "")
+      return
+    }
+    try {
+      await ChangePassword(token, currentPassword, newPassword)
+      // 后端会让该用户的所有会话失效(含当前这条) -> 清本地并回登录页
+      clearSession()
+      setPasswordEditing(false)
+      toast.success(staticValue("sidebar.account.passwordSaved") ?? "")
+      navigate("/login", { replace: true })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error))
+    }
   }
 
   return (
@@ -124,7 +163,7 @@ export default function AccountDialog({
               <CardActions
                 editing={accountEditing}
                 onToggleEdit={() => setAccountEditing((prev) => !prev)}
-                onSave={saveAccount}
+                onSave={() => void saveAccount()}
                 onRefresh={() => toast.success(staticValue("sidebar.account.informationRefreshed") ?? "")}
               />
             </CardAction>
@@ -132,16 +171,16 @@ export default function AccountDialog({
           <CardContent className="flex items-start gap-6">
             <div className="flex flex-1 flex-col gap-3">
               <LabelInput
-                label={staticValue("sidebar.account.name") ?? ""}
-                value={name}
+                label={staticValue("sidebar.account.username") ?? ""}
+                value={username}
                 readOnly={!accountEditing}
-                onChange={(event) => setName(event.target.value)}
+                onChange={(event) => setUsername(event.target.value)}
               />
               <LabelInput
-                label={staticValue("sidebar.account.email") ?? ""}
-                value={email}
+                label={staticValue("sidebar.account.nickname") ?? ""}
+                value={nickname}
                 readOnly={!accountEditing}
-                onChange={(event) => setEmail(event.target.value)}
+                onChange={(event) => setNickname(event.target.value)}
               />
             </div>
             <Avatar
@@ -168,7 +207,7 @@ export default function AccountDialog({
               <CardActions
                 editing={passwordEditing}
                 onToggleEdit={() => setPasswordEditing((prev) => !prev)}
-                onSave={savePassword}
+                onSave={() => void savePassword()}
                 onRefresh={() => toast.success(staticValue("sidebar.account.passwordRefreshed") ?? "")}
               />
             </CardAction>

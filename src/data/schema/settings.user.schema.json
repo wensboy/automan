@@ -2,7 +2,7 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://automan.local/schema/settings.user.schema.json",
     "title": "Automan user settings",
-    "description": "settings.user.json 的 schema: 用于编辑器提示与写入前校验. 用户文件是运行期基础配置, 只写覆盖项; 未写入的键回落到内置默认 (data/conf) 与 runtime 层.",
+    "description": "settings.user.json 的 schema. 与 data/default/settings.user.json 保持同步, **以后者为准**; 用户文件只写覆盖项, 未写入的键回落到默认层与 runtime 层.",
     "type": "object",
     "properties": {
         "$schema": {
@@ -14,7 +14,11 @@
             "description": "外观与布局.",
             "properties": {
                 "mode": {
-                    "enum": ["auto", "light", "dark"],
+                    "enum": [
+                        "auto",
+                        "light",
+                        "dark"
+                    ],
                     "default": "auto",
                     "description": "主题模式: auto 跟随系统."
                 },
@@ -31,113 +35,152 @@
             "description": "主题细节.",
             "properties": {
                 "accent": {
-                    "enum": ["neutral", "blue", "green", "orange"],
+                    "enum": [
+                        "neutral",
+                        "blue",
+                        "green",
+                        "orange"
+                    ],
                     "default": "neutral",
                     "description": "强调色 (与 index.css 的 token 对应)."
                 },
                 "radius": {
                     "type": "number",
                     "minimum": 0,
-                    "maximum": 1.5,
+                    "maximum": 2,
                     "default": 0.625,
-                    "description": "圆角基准值 (rem)."
+                    "description": "圆角系数 (rem)."
                 }
             },
             "additionalProperties": false
         },
         "proxy": {
             "type": "object",
-            "description": "代理相关默认值.",
+            "description": "代理默认行为.",
             "properties": {
                 "autoStart": {
                     "type": "boolean",
                     "default": false,
-                    "description": "应用启动时自动启动已启用的代理."
+                    "description": "应用启动时自动启动代理."
                 },
                 "timeout": {
                     "type": "number",
                     "minimum": 1,
-                    "maximum": 120,
+                    "maximum": 3600,
                     "default": 30,
-                    "description": "上游连接超时 (秒)."
+                    "description": "上游超时 (秒)."
                 },
                 "bypass": {
                     "type": "array",
-                    "items": { "type": "string" },
-                    "default": ["localhost", "127.0.0.1"],
-                    "description": "不走代理的地址列表."
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": [
+                        "localhost",
+                        "127.0.0.1"
+                    ],
+                    "description": "绕过代理的主机列表."
                 },
                 "userAgent": {
                     "type": "string",
                     "default": "",
-                    "description": "上游请求使用的 User-Agent (留空表示透传)."
+                    "description": "覆盖发送的 User-Agent (空表示不覆盖)."
                 }
             },
             "additionalProperties": false
         },
         "automation": {
             "type": "object",
-            "description": "自动化相关默认值.",
+            "description": "自动化默认行为.",
             "properties": {
                 "enabled": {
                     "type": "boolean",
                     "default": false,
-                    "description": "启用自动化工作流."
+                    "description": "是否启用自动化."
                 },
                 "concurrency": {
                     "type": "number",
                     "minimum": 1,
-                    "maximum": 16,
+                    "maximum": 32,
                     "default": 4,
-                    "description": "并发执行的工作流数量."
+                    "description": "并发上限."
                 },
                 "paths": {
                     "type": "array",
-                    "items": { "type": "string" },
+                    "items": {
+                        "type": "string"
+                    },
                     "default": [],
-                    "description": "工作流文件所在目录."
+                    "description": "自动化脚本搜索目录."
                 }
             },
             "additionalProperties": false
         },
         "general": {
             "type": "object",
-            "description": "通用设置.",
+            "description": "通用.",
             "properties": {
                 "language": {
-                    "enum": ["English", "Chinese"],
+                    "enum": [
+                        "English",
+                        "Chinese"
+                    ],
                     "default": "English",
                     "description": "界面语言."
                 },
                 "startupPage": {
                     "type": "string",
                     "default": "/",
-                    "description": "启动后进入的页面路径."
+                    "description": "启动后打开的页面."
+                },
+                "session": {
+                    "type": "object",
+                    "description": "会话.",
+                    "properties": {
+                        "expirationS": {
+                            "type": "number",
+                            "minimum": 60,
+                            "maximum": 604800,
+                            "default": 7200,
+                            "description": "登录态有效期 (秒); 应用重启时按\"最后登录时间 + 有效期\"判断是否仍然有效."
+                        },
+                        "resumeOnStart": {
+                            "type": "boolean",
+                            "default": true,
+                            "description": "应用启动时是否按登录日志恢复上次会话(关闭则每次启动都要登录)."
+                        },
+                        "slidingExpire": {
+                            "type": "boolean",
+                            "default": true,
+                            "description": "是否滑动续期: 每次校验都会延长会话有效期; 关闭则从登录时刻起绝对到期."
+                        }
+                    },
+                    "additionalProperties": false
                 }
             },
             "additionalProperties": false
         },
         "advanced": {
             "type": "object",
-            "description": "高级设置 (谨慎修改).",
+            "description": "高级 (程序参数).",
             "properties": {
                 "watchMs": {
                     "type": "number",
-                    "minimum": 200,
-                    "maximum": 10000,
+                    "minimum": 100,
+                    "maximum": 60000,
                     "default": 2000,
-                    "description": "配置文件监听间隔 (毫秒)."
+                    "description": "用户文件轮询间隔 (毫秒)."
                 },
                 "debounceMs": {
                     "type": "number",
                     "minimum": 0,
-                    "maximum": 2000,
+                    "maximum": 5000,
                     "default": 100,
-                    "description": "文件变更防抖 (毫秒)."
+                    "description": "外部改动的去抖窗口 (毫秒)."
                 }
             },
             "additionalProperties": false
         }
     },
-    "additionalProperties": true
+    "additionalProperties": false
 }

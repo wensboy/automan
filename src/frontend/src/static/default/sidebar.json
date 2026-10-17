@@ -67,8 +67,8 @@
     ],
     "user": {
         "name": "shadcn",
-        "email": "m@example.com",
-        "avatar": "/placeholder.svg"
+        "email": "",
+        "avatar": "/cool_morty.png"
     },
     "teamSwitcher": {
         "aria": "Switch team",
@@ -94,8 +94,6 @@
         "title": "Account",
         "information": "Information",
         "password": "Password",
-        "name": "Name",
-        "email": "Email",
         "avatarAlt": "Avatar",
         "currentPassword": "Current",
         "newPassword": "New",
@@ -107,7 +105,10 @@
         "passwordSaved": "Password saved",
         "informationRefreshed": "Information refreshed",
         "passwordRefreshed": "Password refreshed",
-        "avatarUpdated": "Avatar updated"
+        "avatarUpdated": "Avatar updated",
+        "notSignedIn": "Not signed in",
+        "username": "Username",
+        "nickname": "Nickname"
     },
     "help": {
         "title": "Help",
@@ -238,12 +239,12 @@
             {
                 "id": "appearence",
                 "label": "Appearence",
-                "icon": "paintbrush"
+                "icon": "layout-template"
             },
             {
                 "id": "theme",
                 "label": "Theme",
-                "icon": "paintbrush"
+                "icon": "palette"
             },
             {
                 "id": "proxy",
@@ -263,7 +264,7 @@
             {
                 "id": "advanced",
                 "label": "Advanced",
-                "icon": "settings"
+                "icon": "wrench"
             }
         ]
     }

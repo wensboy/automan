@@ -10,7 +10,8 @@ import {
 
 import AccountDialog from "@/components/custom/account/account-dialog"
 import NoticeDrawer from "@/components/custom/notice/notice-drawer"
-import { signOut } from "@/lib/auth"
+import { currentUser, loginAt, signOut } from "@/lib/auth"
+import { formatDateTime } from "@/lib/format"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -47,11 +48,16 @@ export default function NavUser({
 }) {
   const { isMobile } = useSidebar()
   const navigate = useNavigate()
+  const me = currentUser()
+  // 标题: 昵称为空时回退登录名; 副标题: 本次会话的登录时间
+  const title = me?.nickname || me?.username || user.name
+  const loginAtValue = loginAt()
+  const subtitle = loginAtValue ? formatDateTime(loginAtValue) : user.email
   const [noticesOpen, setNoticesOpen] = React.useState(false)
   const [accountOpen, setAccountOpen] = React.useState(false)
 
-  const logout = () => {
-    signOut()
+  const logout = async () => {
+    await signOut()   // 通知后端结束会话并清本地状态
     navigate("/login", { replace: true })
   }
 
@@ -67,12 +73,12 @@ export default function NavUser({
             >
               <DropdownMenuTrigger>
                 <Avatar className="h-8 w-8 rounded-lg grayscale">
-                  <AvatarImage src={user.avatar} alt={user.name} />
+                  <AvatarImage src={user.avatar} alt={title} />
                   <AvatarFallback className="rounded-lg">CN</AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">{user.name}</span>
-                  <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+                  <span className="truncate font-medium">{title}</span>
+                  <span className="truncate text-xs text-muted-foreground">{subtitle}</span>
                 </div>
                 <MoreVerticalIcon className="ml-auto size-4" />
               </DropdownMenuTrigger>
@@ -86,12 +92,12 @@ export default function NavUser({
               <DropdownMenuLabel className="p-0 font-normal">
                 <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                   <Avatar className="h-8 w-8 rounded-lg">
-                    <AvatarImage src={user.avatar} alt={user.name} />
+                    <AvatarImage src={user.avatar} alt={title} />
                     <AvatarFallback className="rounded-lg">CN</AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-medium">{user.name}</span>
-                    <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+                    <span className="truncate font-medium">{title}</span>
+                    <span className="truncate text-xs text-muted-foreground">{subtitle}</span>
                   </div>
                 </div>
               </DropdownMenuLabel>

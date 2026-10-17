@@ -5,6 +5,7 @@ import (
 	stdctx "context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -47,6 +48,11 @@ type Engine struct {
 	slowMs        int
 	maxRows       int
 	logArgs       bool
+
+	// 迁移: migrations 为携带 SQL 的文件系统(data), migrateDir 为其中的目录(例 "data/migrate")。
+	// 只加载 migrate.go 里手动维护的清单(见 docs/design/v17.md §4)。
+	migrations fs.FS
+	migrateDir string
 }
 
 // Option 设置 database 引擎的必要字段.
@@ -54,6 +60,15 @@ type Option func(*Engine)
 
 // WithPath 覆盖数据库文件路径 (缺省按平台约定解析).
 func WithPath(path string) Option { return func(e *Engine) { e.path = path } }
+
+// WithMigrations 指定迁移 SQL 的位置: fsys 为文件系统(组合根传内嵌的 data), dir 为其中目录。
+// 未指定时启动不跑迁移(schema 由外部准备)。
+func WithMigrations(fsys fs.FS, dir string) Option {
+	return func(e *Engine) {
+		e.migrations = fsys
+		e.migrateDir = dir
+	}
+}
 
 // New 创建 database 引擎.
 func New(opts ...Option) *Engine {
@@ -128,6 +143,17 @@ func (e *Engine) Start(context.Context) error {
 	e.db = db
 	e.logger.Deliver(logkit.New(domainlog.LevelInfo, "database: opened",
 		logkit.F("path", e.path), logkit.F("journal", e.journal), logkit.F("busyTimeoutMs", e.busyTimeoutMs)))
+
+	// 迁移在建队列之前执行: 此刻只有本引擎持有连接, 没有并发写(见 v17 §4)
+	if e.migrations != nil {
+		if err := Migrate(e.migrations, e.migrateDir, e.path); err != nil {
+			e.logger.Deliver(logkit.New(domainlog.LevelError, "database: migrate failed",
+				logkit.F("dir", e.migrateDir), logkit.F("err", err)))
+			return err
+		}
+		e.logger.Deliver(logkit.New(domainlog.LevelInfo, "database: migrated", logkit.F("dir", e.migrateDir)))
+	}
+
 	e.queue.Seal()
 	e.queue.Launch()
 	return nil

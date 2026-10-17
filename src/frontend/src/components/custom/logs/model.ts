@@ -47,19 +47,6 @@ function formatMessage(record: StreamRecord): string {
 }
 
 /**
- * 终端行首时间戳: `YYYY-MM-DD HH:mm:ss` (本地时区)。
- * 日志常跨天查看, 只给时分秒无法区分日期, 所以年月日一并显示。
- */
-export function formatLogTime(ms: number): string {
-  const date = new Date(ms)
-  const pad = (value: number) => String(value).padStart(2, "0")
-  return (
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
-    ` ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
-  )
-}
-
-/**
  * 把一批后端记录映射为终端行; startId 为自增起点(行 id 由页面维护)。
  * 时间无法解析时退回当前时间, 保证行仍可见。
  */

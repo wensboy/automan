@@ -111,7 +111,12 @@
             "stop": "Stop",
             "restart": "Restart",
             "reload": "Reload"
-        }
+        },
+        "statusAria": "Filter by status",
+        "allStatuses": "All statuses",
+        "noSelection": "Select at least one proxy",
+        "statusChanged": "Status updated: ",
+        "statusUnchanged": "No proxy needed changes"
     },
     "records": {
         "title": "Records",

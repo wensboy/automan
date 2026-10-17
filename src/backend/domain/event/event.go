@@ -62,3 +62,31 @@ type BridgeError struct {
 	Op     string
 	Err    string
 }
+
+// SessionSignup 是注册成功事件的载荷.
+type SessionSignup struct {
+	UserID   string
+	Username string
+	At       int64
+}
+
+// SessionLogin 是登录成功事件的载荷.
+type SessionLogin struct {
+	UserID   string
+	Username string
+	At       int64
+}
+
+// SessionLogout 是登出事件的载荷.
+type SessionLogout struct {
+	UserID   string
+	Username string
+	At       int64
+}
+
+// SessionExpired 是会话到期事件的载荷(由 ttlcache 过期钩子发出).
+type SessionExpired struct {
+	UserID   string
+	Username string
+	At       int64
+}

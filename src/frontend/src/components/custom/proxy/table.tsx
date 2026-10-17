@@ -26,10 +26,10 @@ import {
   proxyStatusActions,
   type ProxyAction,
   type ProxyApplication,
-  type ProxyRow,
-  type ProxyStatus,
 } from "@/mock/proxies"
 import { useStatic, staticValue } from "@/components/custom/share/provider/static-provider"
+import { toStatus, type Proxy, type ProxyStatus } from "@/components/custom/proxy/model"
+import { formatDateTime } from "@/lib/format"
 
 /** 状态 -> 字体色 (底色统一 bg-secondary, 随主题明暗变化; 颜色来自 index.css 的 --status-* token)。 */
 const statusText: Record<ProxyStatus, string> = {
@@ -65,15 +65,15 @@ export default function ProxyTable({
   onStatus,
   onApplication,
 }: {
-  rows: ProxyRow[]
+  rows: Proxy[]
   selectedIds: Set<string>
   onToggleRow: (id: string) => void
   onToggleAll: () => void
-  onEdit: (row: ProxyRow) => void
-  onInspect: (row: ProxyRow) => void
-  onDelete: (row: ProxyRow) => void
-  onStatus: (row: ProxyRow, action: ProxyAction) => void
-  onApplication: (row: ProxyRow, application: ProxyApplication) => void
+  onEdit: (row: Proxy) => void
+  onInspect: (row: Proxy) => void
+  onDelete: (row: Proxy) => void
+  onStatus: (row: Proxy, action: ProxyAction) => void
+  onApplication: (row: Proxy, application: ProxyApplication) => void
 }) {
   const { Value } = useStatic()
   const allSelected = rows.length > 0 && rows.every((row) => selectedIds.has(row.id))
@@ -126,11 +126,13 @@ export default function ProxyTable({
                 {row.target}
               </TableCell>
               <TableCell>
-                <Badge variant="secondary" className={statusText[row.status]}>
-                  {Value(`contentArea.proxy.statusLabel.${row.status}`)}
+                <Badge variant="secondary" className={statusText[toStatus(row.status)]}>
+                  {Value(`contentArea.proxy.statusLabel.${row.status}`) as string}
                 </Badge>
               </TableCell>
-              <TableCell className="text-muted-foreground">{row.updatedAt}</TableCell>
+              <TableCell className="text-muted-foreground tabular-nums">
+                {formatDateTime(row.updatedAt)}
+              </TableCell>
               <TableCell className={frozenClass}>
                 <DropdownMenu>
                   {/*

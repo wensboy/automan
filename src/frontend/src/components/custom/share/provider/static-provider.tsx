@@ -13,11 +13,12 @@ import {
   HouseIcon,
   InfoIcon,
   KeyboardIcon,
+  LayoutTemplateIcon,
   LinkIcon,
   LockIcon,
   MenuIcon,
   MessageCircleIcon,
-  PaintbrushIcon,
+  PaletteIcon,
   RadarIcon,
   RouteIcon,
   ScrollText,
@@ -27,6 +28,7 @@ import {
   ShieldCheckIcon,
   VideoIcon,
   WorkflowIcon,
+  WrenchIcon,
   ZapIcon,
   type LucideIcon,
 } from "lucide-react"
@@ -57,11 +59,12 @@ const iconRegistry: Record<string, LucideIcon> = {
   globe: GlobeIcon,
   info: InfoIcon,
   keyboard: KeyboardIcon,
+  "layout-template": LayoutTemplateIcon,
   link: LinkIcon,
   lock: LockIcon,
   menu: MenuIcon,
   "message-circle": MessageCircleIcon,
-  paintbrush: PaintbrushIcon,
+  palette: PaletteIcon,
   server: ServerIcon,
   "shield-check": ShieldCheckIcon,
   video: VideoIcon,
@@ -76,6 +79,7 @@ const iconRegistry: Record<string, LucideIcon> = {
   search: SearchIcon,
   settings: SettingsIcon,
   workflow: WorkflowIcon,
+  wrench: WrenchIcon,
 }
 
 /** 解析图标名; 未登记视为数据错误, 直接暴露 (构建期数据, 不静默兜底)。 */

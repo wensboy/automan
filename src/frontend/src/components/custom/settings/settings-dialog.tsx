@@ -1,4 +1,7 @@
 import * as React from "react"
+import { ChevronRightIcon } from "lucide-react"
+
+import { cn } from "cn"
 import { toast } from "sonner"
 
 import ListInput from "@/components/custom/share/list-input"
@@ -37,12 +40,14 @@ import {
   loadSettings,
   parseFieldValue,
   saveSettings,
+  rangeBounds,
   settingsGroups,
   subscribeSettings,
 } from "@/lib/settings"
 import {
   parseFieldType,
   type SettingsField,
+  type SettingsFieldEntry,
   type SettingsScalarType,
   type SettingsValue,
   type SettingsValues,
@@ -67,15 +72,19 @@ function fromText(text: string, of: SettingsScalarType): SettingsValue | undefin
 /**
  * 单个配置项: 按 `type` 选择控件 ——
  * `enum<T>`->select(popper 非对齐) / `bool`->switch / `string`->field /
- * `number`->slider(有 min·max 时)或数字输入 / `array<T>`->list-input。
- * 值缺失时显示占位符: 前端不提供默认值, 生效值一律由运行时下发。
+ * `number`->slider(range 为 [min,max] 时)或数字输入 / `array<T>`->list-input。
+ * 值缺失时显示占位符: 前端不提供默认值, 生效值一律由运行时下发。\n * label 一律原样显示(嵌套层级由 settings.json 的 label 自己写成 `session>expiration` 这类形式);
+ * 分隔线只在 depth=1 的项之间(`trail` 只用于判断深度, 不再拼进 label)。
  */
 function SettingsRow({
   field,
+  separator,
   value,
   onChange,
 }: {
-  field: SettingsField
+  field: SettingsFieldEntry
+  /** 是否显示与下一项的分隔线: 只有 depth=1 的项才分隔(见父层注释)。 */
+  separator: boolean
   value: SettingsValue | undefined
   onChange: (next: SettingsValue) => void
 }) {
@@ -83,10 +92,21 @@ function SettingsRow({
   const missing = value === undefined
 
   return (
-    <div className="flex flex-col gap-2 border-b py-4 last:border-b-0">
+    <div className={cn("flex flex-col gap-1.5 py-2.5", separator && "border-b")}>
       <div className="flex items-center justify-between gap-3">
-        <Label htmlFor={field.key} className="text-sm font-medium">
-          {field.label}
+        <Label htmlFor={field.key} className="flex items-center gap-1 text-sm font-medium">
+          {/*
+            层级: label 里每个 `.` 都渲染成 chevron-right 图标 —— 比 `>` 字形在不同字体下更稳定,
+            间距也一致(gap 控制)。其余文本原样显示; 只按 `.` 切分, 不做其它加工。
+          */}
+          {field.label.split(".").map((part, index) => (
+            <React.Fragment key={`${part}-${index}`}>
+              {index > 0 && (
+                <ChevronRightIcon aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+              )}
+              <span>{part.trim()}</span>
+            </React.Fragment>
+          ))}
         </Label>
         {!missing && type?.kind === "bool" && (
           <Switch
@@ -95,7 +115,8 @@ function SettingsRow({
             onCheckedChange={(checked) => onChange(checked)}
           />
         )}
-        {!missing && type?.kind === "number" && (
+        {/* 数值只在滑杆形式下显示: 手动输入时 input 内已能看到, 不重复占位 */}
+        {!missing && type?.kind === "number" && isRanged(field) && (
           <span className="text-muted-foreground text-xs tabular-nums">{Number(value)}</span>
         )}
         {missing && <span className="text-muted-foreground text-xs">—</span>}
@@ -146,7 +167,13 @@ function SettingsRow({
   )
 }
 
-/** 数字项: 描述里给了 min 与 max 就用滑杆, 否则退化为数字输入 (不臆造边界)。 */
+/** number 是否按滑杆呈现: 仅当 range 恰好给出 [min, max]。 */
+function isRanged(field: SettingsField): boolean {
+  const { min, max } = rangeBounds(field)
+  return typeof min === "number" && typeof max === "number"
+}
+
+/** 数字项: range 为 [min, max] 用滑杆; range 为空用数字输入(调用时解析文本)。 */
 function NumberControl({
   field,
   value,
@@ -156,8 +183,9 @@ function NumberControl({
   value: number
   onChange: (next: SettingsValue) => void
 }) {
-  const bounded = field.type === "number" && typeof field.min === "number" && typeof field.max === "number"
-  if (!bounded || field.type !== "number") {
+  // range 为 [min, max] 才用滑杆; range 为空则退化为手动输入(调用时解析), 不臆造边界
+  const { min, max } = rangeBounds(field)
+  if (!isRanged(field)) {
     return (
       <Input
         id={field.key}
@@ -171,9 +199,8 @@ function NumberControl({
   return (
     <Slider
       id={field.key}
-      min={field.min}
-      max={field.max}
-      step={field.step ?? 1}
+      min={min}
+      max={max}
       value={[value]}
       onValueChange={([next]) => onChange(next)}
     />
@@ -246,6 +273,12 @@ export default function SettingsDialog({
   }, [open])
 
   const activeGroup = groups.find((group) => group.id === active) ?? groups[0]
+  // 分隔线只给 depth=1 的项(例 language 与 session 之间); depth>1 的项彼此不分隔, 层级由 label 里的 `>` 表达
+  const groupFields = activeGroup?.fields ?? []
+  const lastTopLevelIndex = groupFields.reduce(
+    (last, field, index) => (field.trail.length === 0 ? index : last),
+    -1,
+  )
 
   const dirtyKeys = React.useMemo(
     () =>
@@ -339,10 +372,11 @@ export default function SettingsDialog({
               </div>
             </header>
             <div className="flex-1 overflow-y-auto px-4 py-2">
-              {activeGroup?.fields.map((field) => (
+              {groupFields.map((field, index) => (
                 <SettingsRow
                   key={field.key}
                   field={field}
+                  separator={field.trail.length === 0 && index !== lastTopLevelIndex}
                   value={values[field.key]}
                   onChange={(next) => update(field, next)}
                 />
