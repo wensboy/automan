@@ -16,6 +16,15 @@
         "command": "",
         "args": [],
         "dir": "",
-        "env": []
+        "env": [
+            "WHISTLE_BIN=${AUTOMAN_ROOT}/backend/bridge/node/node_modules/whistle/bin/whistle.js"
+        ],
+        "services": {
+            "proxy": {
+                "root": "proxies/",
+                "stopTimeoutMs": 5000
+            },
+            "automation": {}
+        }
     }
 }

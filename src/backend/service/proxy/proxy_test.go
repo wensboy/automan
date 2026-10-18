@@ -175,7 +175,6 @@ func TestCreateValidatesInput(t *testing.T) {
 	}{
 		{"空 name", Input{Name: "  ", Target: "127.0.0.1:8899"}, "name must be"},
 		{"超长 name", Input{Name: strings.Repeat("a", maxNameLen+1), Target: "t"}, "name must be"},
-		{"空 target", Input{Name: "p", Target: ""}, "target must be"},
 		{"非法 status", Input{Name: "p", Target: "t", Status: "starting"}, "status must be"},
 		{"rules 过大", Input{Name: "p", Target: "t", Rules: strings.Repeat("x", maxTextLen+1)}, "rules exceeds"},
 	}
@@ -198,7 +197,9 @@ func TestCreateValidatesInput(t *testing.T) {
 func TestCreateInsertsAndLogs(t *testing.T) {
 	svc, store, logger := newService()
 
-	created, err := svc.Create(nil, Input{Name: " local-dev ", Target: " 127.0.0.1:8899 "})
+	// target 不再由前端提供: 由 rules 的 host/port 派生(传进来的 Target 会被忽略)
+	created, err := svc.Create(nil, Input{Name: " local-dev ", Target: "ignored",
+		Rules: `{"host":"127.0.0.1","port":8899}`})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -265,8 +266,8 @@ func TestUpdateWritesChangedFieldsLog(t *testing.T) {
 		t.Fatalf("更新不应波及已删除行: %q", exec.sql)
 	}
 	record := logger.find(t, "proxy: updated")
-	if got := field(record, "fields"); got != "name,status" {
-		t.Fatalf("改动字段应为 name,status, got %q", got)
+	if got := field(record, "fields"); got != "name,target,status" {
+		t.Fatalf("改动字段应为 name,target,status(rules 变化会带动派生 target), got %q", got)
 	}
 	if updated.Name != "new" {
 		t.Fatalf("返回行异常: %+v", updated)

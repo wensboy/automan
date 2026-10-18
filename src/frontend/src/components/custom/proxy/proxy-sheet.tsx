@@ -12,7 +12,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-import { emptyInput, toInput, type Input, type Proxy } from "@/components/custom/proxy/model"
+import { emptyInput, prettyJSON, targetOf, toInput, type Input, type Proxy } from "@/components/custom/proxy/model"
+
+/** 新增时的草稿: rules 取后端模板(data/default/proxy.rules.json), 取不到则用空对象。 */
+function buildDraft(template?: string): Input {
+  const blank = emptyInput()
+  return template ? { ...blank, rules: prettyJSON(template) } : blank
+}
 
 /**
  * 代理编辑 sheet (新增/编辑共用): 标题 -> Name/Target 输入 + 单个 Rules 编辑块 -> 底部 [取消][保存]。
@@ -23,22 +29,40 @@ export default function ProxySheet({
   open,
   onOpenChange,
   row,
+  rulesTemplate,
   onSubmit,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   row?: Proxy
+  /** 新建时的 rules 初始内容(后端 data/default/proxy.rules.json) */
+  rulesTemplate?: string
   onSubmit: (input: Input, id?: string) => Promise<void>
 }) {
   const isEdit = Boolean(row)
-  const [draft, setDraft] = React.useState<Input>(() => (row ? toInput(row) : emptyInput()))
+  const [draft, setDraft] = React.useState<Input>(() => (row ? toInput(row) : buildDraft(rulesTemplate)))
   const [rulesEditing, setRulesEditing] = React.useState(true)
+
+  // 本组件**常驻挂载**(open 只是开关), 因此 useState 的初值早于模板到达,
+  // 且关闭再打开不会重建 state。这里在每次打开"新增"时按最新模板重置草稿。
+  React.useEffect(() => {
+    if (!open || row) return
+    setDraft(buildDraft(rulesTemplate))
+    setRulesEditing(true)
+  }, [open, row, rulesTemplate])
   const [pending, setPending] = React.useState(false)
+  // 有效 rules: 新增时草稿为空(或仍是空对象)则回落到模板 —— 不依赖初始化时序
+  const effectiveRules = React.useMemo(() => {
+    if (isEdit) return draft.rules
+    const current = draft.rules.trim()
+    if (current === "" || current === "{}") return rulesTemplate ?? current
+    return draft.rules
+  }, [draft.rules, isEdit, rulesTemplate])
 
   const submit = async () => {
     setPending(true)
     try {
-      await onSubmit(draft, row?.id)
+      await onSubmit({ ...draft, rules: effectiveRules }, row?.id)
       onOpenChange(false)
     } catch (error) {
       // 后端会给出明确原因(必填/重复名/枚举越界等), 原样呈现
@@ -67,10 +91,11 @@ export default function ProxySheet({
             value={draft.name}
             onChange={(event) => setDraft((prev) => ({ ...prev, name: event.target.value }))}
           />
+          {/* target 由 rules 的 host + port 派生: 这里只展示, 不提供编辑(库里仍冗余存储该列) */}
           <LabelInput
             label={staticValue("contentArea.proxy.columns.target") ?? ""}
-            value={draft.target}
-            onChange={(event) => setDraft((prev) => ({ ...prev, target: event.target.value }))}
+            value={targetOf(effectiveRules)}
+            readOnly
           />
           <LabelChunk
             label={staticValue("contentArea.proxy.rules") ?? ""}
@@ -84,7 +109,7 @@ export default function ProxySheet({
             onRefresh={() => toast.success(staticValue("contentArea.proxy.rulesRefreshed") ?? "")}
           >
             <Coder
-              value={draft.rules}
+              value={effectiveRules}
               onValueChange={(value) => setDraft((prev) => ({ ...prev, rules: value }))}
               readOnly={!rulesEditing}
               className="min-h-0 flex-1 rounded-none border-0 bg-transparent"

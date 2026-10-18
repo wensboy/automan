@@ -95,24 +95,6 @@ export const proxies: ProxyRow[] = [
 ]
 
 /** 新增时 coder 的初始内容 (dev 占位)。 */
-export const proxyConfigTemplate = `{
-  "listen": "127.0.0.1:8899",
-  "upstream": "api.example.com:443",
-  "rules": [
-    { "match": "/*", "action": "forward" }
-  ]
-}`
+// rules 模板已移到后端 data/default/proxy.rules.json, 经 ProxyService.Template() 下发
 
-/** 编辑时 coder 的初始内容: 该代理的全部信息 (代理信息统一在这一个可编辑块内显示)。 */
-export function proxyRowConfig(row: ProxyRow): string {
-  return JSON.stringify(
-    {
-      name: row.name,
-      target: row.target,
-      application: row.application,
-      status: row.status,
-    },
-    null,
-    2,
-  )
-}
+// 编辑时的初始内容改为行自身的 rules(见 proxy/model.ts 的 toInput)

@@ -10,11 +10,14 @@ import {
   Delete,
   List,
   SetStatus,
+  Start,
+  Stop,
+  Template,
   Update,
 } from "../../../bindings/github.com/wensboy/automan/backend/api/web/proxyservice"
 import type { ProxyAction, ProxyApplication } from "@/mock/proxies"
 import { staticValue } from "@/components/custom/share/provider/static-provider"
-import type { Input, Proxy, ProxyStatus, ProxyStatusFilter } from "@/components/custom/proxy/model"
+import { toPayload, type Input, type Proxy, type ProxyStatus, type ProxyStatusFilter } from "@/components/custom/proxy/model"
 
 /** 每页行数可选值 (页脚的选择器)。 */
 const PAGE_SIZES = [5, 10, 20]
@@ -44,6 +47,7 @@ export default function Proxy() {
   const [rowsPerPage, setRowsPerPage] = React.useState(PAGE_SIZES[0])
   const [loading, setLoading] = React.useState(false)
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set())
+  const [rulesTemplate, setRulesTemplate] = React.useState<string | undefined>(undefined)
   const [sheetOpen, setSheetOpen] = React.useState(false)
   const [editRow, setEditRow] = React.useState<Proxy | null>(null)
 
@@ -78,6 +82,23 @@ export default function Proxy() {
   React.useEffect(() => {
     void reload()
   }, [reload])
+
+  // rules 模板来自后端(data/default/proxy.rules.json), 新建代理时作为编辑器初始内容。
+  // 失败**不再静默**: 取不到就让用户看到原因, 否则只会表现为编辑器停在 {}。
+  const loadRulesTemplate = React.useCallback(async (): Promise<string> => {
+    try {
+      const raw = await Template()
+      if (raw && raw.trim() !== "") return raw
+      toast.error("rules template is empty (data/default/proxy.rules.json)")
+    } catch (error) {
+      toast.error(`Template failed: ${messageOf(error)}`)
+    }
+    return ""
+  }, [])
+
+  React.useEffect(() => {
+    void loadRulesTemplate().then((raw) => setRulesTemplate(raw || undefined))
+  }, [loadRulesTemplate])
 
   const pageCount = Math.max(1, Math.ceil(total / rowsPerPage))
   const current = Math.min(page, pageCount)
@@ -144,15 +165,55 @@ export default function Proxy() {
 
   // 编辑/新增: 落库后重新拉取当前页(总数与统计随之更新)
   const submitSheet = async (input: Input, id?: string) => {
+    // 入库统一用紧凑 JSON(显示在编辑器里是缩进形式, 两者不同源: 显示层各自 pretty)
+    const payload = toPayload(input)
     if (id) {
-      await Update(id, input)
+      await Update(id, payload)
     } else {
-      await Create(input)
+      await Create(payload)
     }
     toast.success(
       (id ? staticValue("contentArea.proxy.updated") : staticValue("contentArea.proxy.saved")) ?? "",
     )
     await reload()
+  }
+
+  // 启动: 参数以 sqlite 为准, 让步结果由后端写回并返回实际生效值
+  const startSelected = async () => {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) {
+      toast.error(staticValue("contentArea.proxy.noSelection") ?? "")
+      return
+    }
+    try {
+      const result = await Start(ids)
+      const started = result?.items?.length ?? 0
+      const failed = result?.failed ?? []
+      if (started > 0) {
+        toast.success(`${staticValue("contentArea.proxy.started") ?? ""} (${started})`)
+      }
+      for (const item of failed) {
+        toast.error(`${item.name}: ${item.reason}`)
+      }
+      await reload()
+    } catch (error) {
+      toast.error(messageOf(error))
+    }
+  }
+
+  const stopSelected = async () => {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) {
+      toast.error(staticValue("contentArea.proxy.noSelection") ?? "")
+      return
+    }
+    try {
+      await Stop(ids)
+      toast.success(staticValue("contentArea.proxy.stopped") ?? "")
+      await reload()
+    } catch (error) {
+      toast.error(messageOf(error))
+    }
   }
 
   // 批量改状态: 后端只改"状态与目标不同"的行并返回实际条数。
@@ -202,7 +263,12 @@ export default function Proxy() {
         }}
         onAdd={() => {
           setEditRow(null)
-          setSheetOpen(true)
+          // 新建时用后端模板: 先确保取到再打开(取不到会 toast 出原因)
+          void (async () => {
+            const raw = rulesTemplate || (await loadRulesTemplate())
+            if (raw) setRulesTemplate(raw)
+            setSheetOpen(true)
+          })()
         }}
         onRefresh={() => void refresh()}
         onClear={() => {
@@ -211,8 +277,8 @@ export default function Proxy() {
           setPage(1)
         }}
         // 启动: 选中里状态非 running 的全部置为 running; 停止: 非 stopped 的全部置为 stopped
-        onStart={() => void changeStatus("running", Array.from(selectedIds))}
-        onStop={() => void changeStatus("stopped", Array.from(selectedIds))}
+        onStart={() => void startSelected()}
+        onStop={() => void stopSelected()}
       />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
         <ProxyTable
@@ -251,6 +317,7 @@ export default function Proxy() {
           if (!open) setEditRow(null)
         }}
         row={editRow ?? undefined}
+        rulesTemplate={rulesTemplate}
         onSubmit={submitSheet}
       />
       {loading && (

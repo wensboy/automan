@@ -31,27 +31,49 @@ type childProcess struct {
 	err  error
 }
 
-// materialize 把内嵌产物落到运行目录并据此设置启动指令
-// (仅在未显式配置命令、且提供了产物时生效; 内容一致则不重复落盘).
+// materialize 把内嵌产物(**整棵树**)落到运行目录, 并据此设置启动指令。
+// 仅在未显式配置命令、且提供了产物时生效; 单文件大小一致则跳过写入(二次启动不会重写)。
+// 之所以要整树: dist 里除 index.js 还带 vendor/(whistle 及其依赖), 只落单文件会让
+// 打包后的应用找不到 whistle —— 见 docs/design/v19.md §21。
 func (e *Engine) materialize(ctx stdctx.Context) error {
 	if e.asset == nil || e.command != "" {
 		return nil
 	}
-	data, err := fs.ReadFile(e.asset, assetScript)
-	if err != nil {
-		return fmt.Errorf("bridge: embedded asset %q unavailable: %w", assetScript, err)
-	}
-	rel := path.Join("bridge", e.daemon, assetScript)
-	if info, statErr := storekit.Stat(ctx, e.store, rel); statErr == nil && info.Size == int64(len(data)) {
-		e.logInfo("bridge: asset ready", logkit.F("path", rel), logkit.F("bytes", len(data)))
-	} else {
+
+	root := path.Join("bridge", e.daemon)
+	written, skipped := 0, 0
+	var total int64
+	err := fs.WalkDir(e.asset, ".", func(name string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		data, readErr := fs.ReadFile(e.asset, name)
+		if readErr != nil {
+			return readErr
+		}
+		rel := path.Join(root, name)
+		total += int64(len(data))
+		if info, statErr := storekit.Stat(ctx, e.store, rel); statErr == nil && info.Size == int64(len(data)) {
+			skipped++
+			return nil
+		}
 		if writeErr := storekit.Write(ctx, e.store, rel, data); writeErr != nil {
 			return fmt.Errorf("bridge: materialize %s: %w", rel, writeErr)
 		}
-		e.logInfo("bridge: asset materialized", logkit.F("path", rel), logkit.F("bytes", len(data)))
+		written++
+		return nil
+	})
+	if err != nil {
+		return err
 	}
+
 	e.command = assetCommand
-	e.args = []string{filepath.Join(e.rooter.Root(), filepath.FromSlash(rel))}
+	e.args = []string{filepath.Join(e.rooter.Root(), filepath.FromSlash(path.Join(root, assetScript)))}
+	e.logInfo("bridge: asset ready",
+		logkit.F("dir", root), logkit.F("files", written+skipped), logkit.F("written", written), logkit.F("bytes", total))
 	return nil
 }
 
@@ -78,7 +100,9 @@ func (e *Engine) startProcess() error {
 	e.logInfo("bridge: child started",
 		logkit.F("command", e.command),
 		logkit.F("args", e.args),
-		logkit.F("pid", cmd.Process.Pid))
+		logkit.F("pid", cmd.Process.Pid),
+		// 只记键名: 值是路径/凭据, 不进日志
+		logkit.F("env", envKeys(e.env)))
 	return nil
 }
 

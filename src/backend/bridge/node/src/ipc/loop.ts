@@ -6,8 +6,8 @@ import { decodeFrame } from './frame.ts';
 import { log } from './log.ts';
 import { kind, type Outgoing, type Packet } from './protocol.ts';
 
-/** 业务处理器: 返回要发出的消息; 不回则返回 null。 */
-export type Handler = (packet: Packet) => Outgoing | null;
+/** 业务处理器: 返回要发出的消息; 不回则返回 null; 也可以是 Promise(异步启动等场景)。 */
+export type Handler = (packet: Packet) => Outgoing | null | Promise<Outgoing | null>;
 
 /** 单读循环: 收帧 -> 解信封 -> 按 name 分派; 未注册 name 丢弃 (与 Go 侧一致)。 */
 export function startLoop(ws: WebSocket, handlers: Record<string, Handler>): void {
@@ -27,10 +27,10 @@ export function startLoop(ws: WebSocket, handlers: Record<string, Handler>): voi
       return;
     }
 
-    try {
-      const reply = handler(packet);
+    const respond = (reply: Outgoing | null) => {
       if (reply !== null) send(ws, reply);
-    } catch (err) {
+    };
+    const fail = (err: unknown) => {
       log(ws, 'error', 'bridge: handler failed', { name: packet.name, err: String(err) });
       send(ws, {
         id: packet.id,
@@ -38,6 +38,18 @@ export function startLoop(ws: WebSocket, handlers: Record<string, Handler>): voi
         name: packet.name,
         data: String(err),
       });
+    };
+
+    try {
+      const result = handler(packet);
+      // 异步处理器(proxy.start 等)在此等待, 但**不阻塞**后续消息的分发
+      if (result instanceof Promise) {
+        void result.then(respond).catch(fail);
+      } else {
+        respond(result);
+      }
+    } catch (err) {
+      fail(err);
     }
   });
 }

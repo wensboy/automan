@@ -326,6 +326,8 @@ func (e *Engine) apply(cfg config.Bridge) {
 	if len(e.env) == 0 {
 		e.env = cfg.Env
 	}
+	// 展开占位符(如开发期的 ${AUTOMAN_ROOT}); 解析不到的条目会被丢弃, 不会注入假路径
+	e.env = expandEnv(e.env)
 	e.token = pick(e.token, cfg.Token, "")
 	if e.stdout == nil {
 		e.stdout = os.Stdout

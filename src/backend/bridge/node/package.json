@@ -1,22 +1,23 @@
 {
-    "name": "automan-node-core",
-    "private": true,
-    "type": "module",
-    "version": "0.0.1",
-    "description": "Automan Node Core - node运行时核心",
-    "scripts": {
-        "build": "node esbuild.config.ts",
-        "check": "tsc --noEmit",
-        "start": "node dist/index.js",
-        "all": "pnpm run build && pnpm run check"
-    },
-    "dependencies": {
-        "ws": "^8.18.0"
-    },
-    "devDependencies": {
-        "@types/node": "^22.10.2",
-        "@types/ws": "^8.5.13",
-        "esbuild": "^0.24.2",
-        "typescript": "^5.7.2"
-    }
+  "name": "automan-node-core",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "description": "Automan Node Core - node运行时核心",
+  "scripts": {
+    "build": "node scripts/vendor-whistle.mjs && node esbuild.config.ts",
+    "check": "tsc --noEmit",
+    "start": "node dist/index.js",
+    "all": "pnpm run build && pnpm run check"
+  },
+  "dependencies": {
+    "whistle": "^2.10.11",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/ws": "^8.5.13",
+    "esbuild": "^0.24.2",
+    "typescript": "^5.7.2"
+  }
 }

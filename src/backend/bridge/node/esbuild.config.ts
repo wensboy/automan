@@ -10,7 +10,7 @@ const options: BuildOptions = {
   format: 'esm',
   sourcemap: true,
   // ws 的可选原生依赖: 不在本地, 运行期由 ws 自行 try/catch 兜底。
-  external: ['bufferutil', 'utf-8-validate'],
+  external: ['whistle', 'bufferutil', 'utf-8-validate'],
   // esm 产物中为 CJS 依赖提供 require。
   banner: {
     js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);",

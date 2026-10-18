@@ -106,7 +106,7 @@ func Run(mode context.Mode, assets, data fs.FS) error {
 		return err
 	}
 
-	cleanup, err := registerServices(rt, fields, defaults)
+	cleanup, err := registerServices(rt, data, fields, defaults)
 	if err != nil {
 		return err
 	}
@@ -136,7 +136,7 @@ func registerErrors(provider domainconfig.Provider) error {
 	return apperr.Register(entries)
 }
 
-func registerServices(rt *rtengine.Runtime, fields map[string]schemakit.Field, defaults map[string]any) (func(), error) {
+func registerServices(rt *rtengine.Runtime, data fs.FS, fields map[string]schemakit.Field, defaults map[string]any) (func(), error) {
 	// 设置服务内部持有引擎: 组合根在此解析一次并注入
 	store, ok := enginekit.Of[domainsettings.Store](rt, "settings")
 	if !ok {
@@ -155,7 +155,23 @@ func registerServices(rt *rtengine.Runtime, fields map[string]schemakit.Field, d
 	if !ok {
 		return nil, errors.New("bootstrap: log engine unavailable")
 	}
-	if err := srvkit.Register(rt, serviceproxy.Key, serviceproxy.New(db, logger)); err != nil {
+	// 代理启动链路: 只把只读数据源与执行链路适配器递进服务;
+	// 模板/basedir 由 service 内部经数据源读取(v19 §12: 能用内部完成的不要堆在组合根)
+	proxyOpts := []serviceproxy.Option{serviceproxy.WithData(data)}
+	// 数据根: 供相对 basedir/storage 解析成绝对路径(否则会成为子进程 cwd 而导致 ENOENT)
+	if rooter, ok := enginekit.Of[domainstore.Rooter](rt, "store"); ok {
+		proxyOpts = append(proxyOpts, serviceproxy.WithRoot(rooter.Root()))
+	}
+	// 执行链路的引擎在此解析; 适配与配表逻辑都在 service/proxy 内部(见 v19 §13)
+	if bridgeEngine, ok := enginekit.Of[*bridgeengine.Engine](rt, "bridge.node"); ok {
+		proxyOpts = append(proxyOpts, serviceproxy.WithBridge(bridgeEngine, bridgeEngine))
+	}
+	proxySrv := serviceproxy.New(db, logger, proxyOpts...)
+	// 启动期保证代理 basedir 存在(它是 node 侧 spawn 的 cwd, 也是 whistle storage 的父目录)
+	if err := proxySrv.EnsureBaseDir(); err != nil {
+		return nil, err
+	}
+	if err := srvkit.Register(rt, serviceproxy.Key, proxySrv); err != nil {
 		return nil, err
 	}
 

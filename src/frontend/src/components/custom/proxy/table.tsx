@@ -191,16 +191,6 @@ export default function ProxyTable({
               </TableCell>
             </TableRow>
           ))}
-          {rows.length === 0 && (
-            <TableRow>
-              <TableCell
-                colSpan={6}
-                className="py-10 text-center text-sm text-muted-foreground"
-              >
-                No proxies match your search.
-              </TableCell>
-            </TableRow>
-          )}
         </TableBody>
       </Table>
     </div>

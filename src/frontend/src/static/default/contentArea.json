@@ -88,7 +88,6 @@
             "edge": "Edge",
             "firefox": "Firefox"
         },
-        "empty": "No proxies match your search.",
         "rowsPerPage": "Rows per page",
         "previousPage": "Previous page",
         "nextPage": "Next page",

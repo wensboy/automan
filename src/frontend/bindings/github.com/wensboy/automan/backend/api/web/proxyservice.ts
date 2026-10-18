@@ -43,10 +43,38 @@ export function List(query: proxy$0.Query): $CancellablePromise<proxy$0.Page> {
 }
 
 /**
+ * Running 返回可用于 capture 页的代理实例(仅运行中且配置了 uiport 的).
+ */
+export function Running(): $CancellablePromise<proxy$0.CaptureTarget[] | null> {
+    return $Call.ByID(4139403726);
+}
+
+/**
  * SetStatus 批量改状态(工具栏启动/停止): 只改选中的、未删除且状态不同的行, 返回实际改动条数.
  */
 export function SetStatus(ids: string[] | null, status: string): $CancellablePromise<number> {
     return $Call.ByID(655777151, ids, status);
+}
+
+/**
+ * Start 批量启动代理(参数取自 sqlite, 让步后写回; 返回实际生效值)。
+ */
+export function Start(ids: string[] | null): $CancellablePromise<proxy$0.StartResult> {
+    return $Call.ByID(2037797797, ids);
+}
+
+/**
+ * Stop 批量停止代理(进程收尾由 node runtime 兜底)。
+ */
+export function Stop(ids: string[] | null): $CancellablePromise<void> {
+    return $Call.ByID(814427511, ids);
+}
+
+/**
+ * Template 返回 rules 模板(前端编辑器初始化用).
+ */
+export function Template(): $CancellablePromise<string> {
+    return $Call.ByID(300231757);
 }
 
 /**

@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"io/fs"
 	"strings"
 	"time"
 
@@ -78,17 +79,37 @@ type Page struct {
 	Counts map[string]int `json:"counts"`
 }
 
-// Service 编排代理 CRUD; store 与 logger 在构造时注入.
+// Service 编排代理 CRUD 与启动链路; store 与 logger 在构造时注入, 执行链路经 Option 注入.
 type Service struct {
 	store  domainstore.Store
 	logger domainlog.Logger
 	now    func() time.Time
 	newID  func() string
+
+	// 启动链路(v19)
+	starter       Starter
+	data          fs.FS
+	rulesTemplate string
+	// root 是应用数据根(绝对路径): basedir/storage 都落在它下面。
+	// 不落到这里的相对路径会被当成子进程的 cwd -> 目录不存在 -> spawn ENOENT。
+	root        string
+	proxyRoot   string
+	stopTimeout time.Duration
+	startWait   time.Duration
+	index       *runtimeIndex
 }
 
 // New 创建代理服务.
-func New(store domainstore.Store, logger domainlog.Logger) *Service {
-	return &Service{store: store, logger: logger, now: time.Now, newID: newID}
+func New(store domainstore.Store, logger domainlog.Logger, opts ...Option) *Service {
+	s := &Service{
+		store: store, logger: logger, now: time.Now, newID: newID,
+		proxyRoot: "proxies", startWait: 15 * time.Second, index: newRuntimeIndex(),
+	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	s.loadData() // 数据源注入后再读, 顺序与 Option 无关
+	return s
 }
 
 // List 返回满足条件的当前页与总数.
@@ -184,6 +205,11 @@ func (s *Service) Update(_ domaincontext.Context, id string, input Input) (Proxy
 	if err != nil {
 		s.fail("update", id, err)
 		return Proxy{}, err
+	}
+
+	// 改名会换 basedir(<proxies>/<name>): 把旧目录迁过去, 避免历史数据留在旧名下
+	if normalized.Name != current.Name {
+		s.migrateBaseDir(current.Name, normalized.Name, current.Status == StatusRunning)
 	}
 
 	s.info("proxy: updated", logkit.F("id", id), logkit.F("name", normalized.Name),
@@ -300,7 +326,6 @@ func buildCountFilter(query Query) (string, []any) {
 func validate(input Input) (Input, error) {
 	out := Input{
 		Name:        strings.TrimSpace(input.Name),
-		Target:      strings.TrimSpace(input.Target),
 		Status:      strings.TrimSpace(input.Status),
 		Rules:       input.Rules,
 		Description: input.Description,
@@ -311,8 +336,10 @@ func validate(input Input) (Input, error) {
 	if out.Name == "" || len(out.Name) > maxNameLen {
 		return Input{}, invalid(`name must be 1..%d chars`, maxNameLen)
 	}
-	if out.Target == "" || len(out.Target) > maxTargetLen {
-		return Input{}, invalid(`target must be 1..%d chars`, maxTargetLen)
+	// target 不是用户输入: 始终由 rules 的 host + port 派生(库里的列只是冗余存储, 便于搜索/展示)
+	out.Target = deriveTarget(out.Rules)
+	if len(out.Target) > maxTargetLen {
+		return Input{}, invalid(`target exceeds %d chars (check rules.host/port)`, maxTargetLen)
 	}
 	if !validStatus(out.Status) {
 		return Input{}, invalid(`status must be one of running|stopped|error|exception, got %q`, out.Status)
@@ -324,6 +351,32 @@ func validate(input Input) (Input, error) {
 		return Input{}, invalid(`description exceeds %d bytes`, maxTextLen)
 	}
 	return out, nil
+}
+
+// deriveTarget 从 rules 的 host + port 派生 target(与启动链路写回时用的是同一个函数)。
+// rules 缺失/非法时返回空串 —— 由上层决定是否允许(当前允许, 因为新建时可能还没填 rules)。
+func deriveTarget(rulesJSON string) string {
+	parsed, err := parseRules(rulesJSON)
+	if err != nil {
+		return ""
+	}
+	host := strings.TrimSpace(parsed.Host)
+	if host == "" {
+		return ""
+	}
+	return targetFrom(host, toIntValue(parsed.Port, 0))
+}
+
+// targetFrom 是 target 的唯一拼装口径(host:port); port <= 0 时只给 host。
+func targetFrom(host string, port int) string {
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return ""
+	}
+	if port <= 0 {
+		return host
+	}
+	return fmt.Sprintf("%s:%d", host, port)
 }
 
 func validStatus(status string) bool {
