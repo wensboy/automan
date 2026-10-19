@@ -32,6 +32,7 @@ import (
 	"github.com/wensboy/automan/backend/internal/kits/schemakit"
 	"github.com/wensboy/automan/backend/internal/kits/srvkit"
 	"github.com/wensboy/automan/backend/internal/registry"
+	servicehelp "github.com/wensboy/automan/backend/service/help"
 	serviceproxy "github.com/wensboy/automan/backend/service/proxy"
 	servicesession "github.com/wensboy/automan/backend/service/session"
 	servicesettings "github.com/wensboy/automan/backend/service/settings"
@@ -61,6 +62,7 @@ func Run(mode context.Mode, assets, data fs.FS) error {
 			application.NewService(apiweb.NewSessionService(rt)),
 			application.NewService(apiweb.NewUserService(rt)),
 			application.NewService(apiweb.NewNoticeService(rt)),
+			application.NewService(apiweb.NewHelpService(rt)),
 		),
 	)
 
@@ -191,6 +193,9 @@ func registerServices(rt *rtengine.Runtime, data fs.FS, fields map[string]schema
 	sessionSrv := servicesession.New(db, settingsEngine, ebus, logger)
 	if err := srvkit.Register(rt, servicesession.Key, sessionSrv); err != nil {
 		sessionSrv.Close()
+		return nil, err
+	}
+	if err := srvkit.Register(rt, servicehelp.Key, servicehelp.New(data, logger, ebus)); err != nil {
 		return nil, err
 	}
 	return sessionSrv.Close, nil

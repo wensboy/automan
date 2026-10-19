@@ -1,6 +1,8 @@
 import * as React from "react"
 import { ChevronRight } from "lucide-react"
+import { toast } from "sonner"
 
+import MarkChunk from "@/components/custom/share/mark-chunk"
 import VersionSwitcher from "@/components/custom/help/version-switcher"
 import SearchForm from "@/components/custom/help/search-form"
 import {
@@ -25,19 +27,22 @@ import {
 import {
   SidebarContent,
   SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarProvider,
 } from "@/components/ui/sidebar"
 import { useStatic } from "@/components/custom/share/provider/static-provider"
+import { Doc as LoadDoc, Meta as LoadMeta } from "../../../../bindings/github.com/wensboy/automan/backend/api/web/helpservice"
+import type { Doc, Meta } from "../../../../bindings/github.com/wensboy/automan/backend/service/help/models"
 
 /**
- * 帮助弹窗: 弹窗内嵌文档侧栏 (复刻 shadcn sidebar-02), 面向文档浏览。
- * 与设置弹窗同构, 但侧栏为可折叠分组式导航且不允许收起 (collapsible="none")。
+ * 帮助弹窗: 左侧目录来自 data/docs/meta.json 的 toc, 右侧是 MarkChunk 渲染的 markdown。
+ * 全部走 help 服务的绑定(离线嵌入文档); 网络获取(remote 三个 uri)当前不实现。
  */
 export default function HelpDialog({
   open,
@@ -47,80 +52,127 @@ export default function HelpDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const { Value } = useStatic()
-  const [selected, setSelected] = React.useState((Value("sidebar.help.groups") ?? [])[0]?.items[0]?.title ?? "")
+  const [meta, setMeta] = React.useState<Meta | null>(null)
+  const [doc, setDoc] = React.useState<Doc | null>(null)
+  const [docId, setDocId] = React.useState("")
+  const [loading, setLoading] = React.useState(false)
+  // 目录分组默认**全部展开**: 用受控 open(不依赖 defaultOpen 的挂载时机)
+  const [openIds, setOpenIds] = React.useState<string[]>([])
+
+  const loadDoc = React.useCallback(async (id: string) => {
+    if (!id) return
+    setLoading(true)
+    try {
+      setDoc(await LoadDoc(id))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  // 打开时拉一次 meta(目录/版本); 默认选中第一篇
+  React.useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const loaded = await LoadMeta()
+        if (cancelled) return
+        setMeta(loaded)
+        setOpenIds((loaded?.toc ?? []).map((item) => item.id))
+        const first = loaded?.toc?.[0]?.id ?? ""
+        setDocId(first)
+        if (first) await loadDoc(first)
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : String(error))
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [open, loadDoc])
+
+  const title = doc?.label || meta?.toc?.find((item) => item.id === docId)?.label || ""
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="overflow-hidden p-0 md:max-h-[500px] md:max-w-[700px] lg:max-w-[800px]"
+        className="overflow-hidden p-0 md:max-h-[560px] md:max-w-[760px] lg:max-w-[920px]"
       >
         <DialogTitle className="sr-only">{Value("sidebar.help.title")}</DialogTitle>
-        <DialogDescription className="sr-only">
-          {Value("sidebar.help.fallback")}
-        </DialogDescription>
-        {/* 高度与右侧 main 一致; min-h-0 抵消 ui 的 min-h-svh */}
-        <SidebarProvider className="h-[480px] min-h-0">
-          {/*
-            弹窗内的侧栏不用 ui 的 Sidebar 容器: 它为整页设计 —— fixed + h-svh 渲染侧栏本体,
-            同时另起一个 gap 占位预留宽度, 于是"预留空间"和"实际渲染"是两套坐标,
-            放进固定高度的弹窗里高度一改就错位/覆盖。这里改用普通 flex 列承载同样的组成件
-            (SidebarHeader/SidebarContent/… 仍在 SidebarProvider 内), 几何完全显式。
-          */}
+        <DialogDescription className="sr-only">{Value("sidebar.help.fallback")}</DialogDescription>
+        <SidebarProvider className="h-[540px] min-h-0">
           <div className="hidden w-64 shrink-0 flex-col border-r bg-sidebar md:flex">
             <SidebarHeader>
-              <VersionSwitcher
-                versions={Value("sidebar.help.versions") ?? []}
-                defaultVersion={(Value("sidebar.help.versions") ?? [""])[0]}
-              />
+              <VersionSwitcher versions={meta ? [meta.version] : []} defaultVersion={meta?.version ?? ""} />
               <SearchForm />
             </SidebarHeader>
             <SidebarContent className="gap-0">
-              {(Value("sidebar.help.groups") ?? []).map((group) => (
-                <Collapsible
-                  key={group.title}
-                  title={group.title}
-                  defaultOpen
-                  className="group/collapsible"
-                >
-                  <SidebarGroup>
-                    <SidebarGroupLabel
+              <SidebarGroup>
+                <SidebarMenu>
+                  {(meta?.toc ?? []).map((item) => (
+                    <Collapsible
+                      key={item.id}
                       asChild
-                      className="group/label text-sm text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      className="group/collapsible"
+                      open={openIds.includes(item.id)}
+                      onOpenChange={(next) =>
+                        setOpenIds((prev) =>
+                          next ? [...prev, item.id] : prev.filter((id) => id !== item.id),
+                        )
+                      }
                     >
-                      <CollapsibleTrigger>
-                        {group.title}{" "}
-                        <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
-                      </CollapsibleTrigger>
-                    </SidebarGroupLabel>
-                    <CollapsibleContent>
-                      <SidebarGroupContent>
-                        <SidebarMenu>
-                          {group.items.map((doc) => (
-                            <SidebarMenuItem key={doc.title}>
-                              <SidebarMenuButton
-                                asChild
-                                isActive={doc.title === selected}
-                              >
-                                <button
-                                  type="button"
-                                  onClick={() => setSelected(doc.title)}
-                                >
-                                  {doc.title}
-                                </button>
-                              </SidebarMenuButton>
-                            </SidebarMenuItem>
-                          ))}
-                        </SidebarMenu>
-                      </SidebarGroupContent>
-                    </CollapsibleContent>
-                  </SidebarGroup>
-                </Collapsible>
-              ))}
+                      <SidebarMenuItem>
+                        {/* 一级本身可点击(加载该篇), 同时点击也会展开/收起子项 */}
+                        <CollapsibleTrigger asChild>
+                          <SidebarMenuButton
+                            isActive={item.id === docId}
+                            onClick={() => {
+                              setDocId(item.id)
+                              void loadDoc(item.id)
+                            }}
+                          >
+                            <span>{item.label}</span>
+                            <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                          </SidebarMenuButton>
+                        </CollapsibleTrigger>
+                        {(item.sub ?? []).length > 0 ? (
+                          <CollapsibleContent>
+                            {/* 容器不再横向内缩: 子项点击宽度与一级一致; 层级靠按钮左内边距表达 */}
+                            <SidebarMenuSub className="mx-0 gap-0.5 border-l-0 px-0">
+                              {(item.sub ?? []).map((leaf) => (
+                                <SidebarMenuSubItem key={leaf.id}>
+                                  <SidebarMenuSubButton
+                                    asChild
+                                    isActive={leaf.id === docId}
+                                    className="h-8 w-full -translate-x-0 pl-6"
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setDocId(leaf.id)
+                                        void loadDoc(leaf.id)
+                                      }}
+                                    >
+                                      {leaf.label}
+                                    </button>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              ))}
+                            </SidebarMenuSub>
+                          </CollapsibleContent>
+                        ) : null}
+                      </SidebarMenuItem>
+                    </Collapsible>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroup>
             </SidebarContent>
           </div>
-          <main className="flex h-[480px] flex-1 flex-col overflow-hidden">
-            <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+          <main className="flex h-[540px] flex-1 flex-col overflow-hidden">
+            <header className="flex h-14 shrink-0 items-center gap-2 border-b">
               <div className="flex items-center gap-2 px-4">
                 <Breadcrumb>
                   <BreadcrumbList>
@@ -129,19 +181,17 @@ export default function HelpDialog({
                     </BreadcrumbItem>
                     <BreadcrumbSeparator className="hidden md:block" />
                     <BreadcrumbItem>
-                      <BreadcrumbPage>{selected}</BreadcrumbPage>
+                      <BreadcrumbPage>{title}</BreadcrumbPage>
                     </BreadcrumbItem>
                   </BreadcrumbList>
                 </Breadcrumb>
               </div>
             </header>
-            <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4 pt-0">
-              {Array.from({ length: 10 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="aspect-video max-w-3xl rounded-xl bg-muted/50"
-                />
-              ))}
+            <div className="flex min-h-0 flex-1 flex-col p-4">
+              <MarkChunk
+                className="min-h-0 flex-1"
+                value={loading ? "" : (doc?.content ?? "")}
+              />
             </div>
           </main>
         </SidebarProvider>

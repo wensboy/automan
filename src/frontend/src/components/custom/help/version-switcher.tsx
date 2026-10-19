@@ -28,6 +28,18 @@ export default function VersionSwitcher({
 }) {
   const [selectedVersion, setSelectedVersion] = React.useState(defaultVersion)
 
+  // defaultVersion 来自异步加载的 meta(本地 outline): 挂载时可能还是空串,
+  // 到达后需要跟随, 否则左上永远显示空版本(默认选中本地的语义就丢了)。
+  React.useEffect(() => {
+    if (defaultVersion) setSelectedVersion(defaultVersion)
+  }, [defaultVersion])
+
+  // meta.version 自带 "v" 前缀(如 v0.1.0-outline), 展示时统一只加一次
+  const formatVersion = (version: string) => {
+    if (!version) return "—"
+    return /^v/i.test(version) ? version : `v${version}`
+  }
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -43,7 +55,7 @@ export default function VersionSwitcher({
               </div>
               <div className="flex flex-col gap-0.5 leading-none">
                 <span className="font-medium">{staticValue("sidebar.help.version")}</span>
-                <span className="">v{selectedVersion}</span>
+                <span className="">{formatVersion(selectedVersion)}</span>
               </div>
               <ChevronsUpDown className="ml-auto" />
             </DropdownMenuTrigger>
@@ -57,7 +69,7 @@ export default function VersionSwitcher({
                 key={version}
                 onSelect={() => setSelectedVersion(version)}
               >
-                v{version}{" "}
+                {formatVersion(version)}{" "}
                 {version === selectedVersion && <Check className="ml-auto" />}
               </DropdownMenuItem>
             ))}

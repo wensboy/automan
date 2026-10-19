@@ -1,0 +1,86 @@
+{
+    "version": "0.1.0-outline",
+    "entry": "outline",
+    "remote": {
+        "baseUrl": "http://example.com",
+        "uri": {
+            "metaList": "/docs/list",
+            "meta": "/docs/:<version>",
+            "docs": "/docs/:<version>/:<toc_id>"
+        }
+    },
+    "author": "wensboy",
+    "releaseDate": "2026/10/19 19:06:17",
+    "modifyDate": "2026/10/19 19:06:17",
+    "toc": [
+        {
+            "id": "1",
+            "label": "Quick Start",
+            "sub": []
+        },
+        {
+            "id": "2",
+            "label": "Download",
+            "sub": [
+                {
+                    "id": "2-1",
+                    "label": "Release"
+                },
+                {
+                    "id": "2-2",
+                    "label": "Source"
+                }
+            ]
+        },
+        {
+            "id": "3",
+            "label": "Manual",
+            "sub": [
+                {
+                    "id": "3-1",
+                    "label": "Proxy"
+                },
+                {
+                    "id": "3-2",
+                    "label": "Record"
+                },
+                {
+                    "id": "3-3",
+                    "label": "Automation"
+                }
+            ]
+        },
+        {
+            "id": "4",
+            "label": "Reference",
+            "sub": [
+                {
+                    "id": "4-1",
+                    "label": "Core Concept"
+                },
+                {
+                    "id": "4-2",
+                    "label": "Architecture"
+                },
+                {
+                    "id": "4-3",
+                    "label": "API"
+                },
+                {
+                    "id": "4-4",
+                    "label": "Settings"
+                }
+            ]
+        },
+        {
+            "id": "5",
+            "label": "Extension",
+            "sub": []
+        },
+        {
+            "id": "6",
+            "label": "About",
+            "sub": []
+        }
+    ]
+}
