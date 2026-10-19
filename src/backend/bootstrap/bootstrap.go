@@ -60,6 +60,7 @@ func Run(mode context.Mode, assets, data fs.FS) error {
 			application.NewService(apiweb.NewProxyService(rt)),
 			application.NewService(apiweb.NewSessionService(rt)),
 			application.NewService(apiweb.NewUserService(rt)),
+			application.NewService(apiweb.NewNoticeService(rt)),
 		),
 	)
 

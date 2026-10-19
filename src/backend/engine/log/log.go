@@ -48,8 +48,9 @@ type Engine struct {
 	ebus  event.Bus
 	unsub func()
 
-	disk   *disk   // 供启动期 fs 处理
-	stream *stream // 流式 out: 持有二级总线
+	disk   *disk      // 供启动期 fs 处理
+	stream *stream    // 流式 out: 持有二级总线
+	notify *notifyOut // 运行时提示: 内存环形 + 事件转发
 
 	delivered atomic.Uint64
 	dropped   atomic.Uint64
@@ -116,6 +117,19 @@ func (e *Engine) Init(ctx context.Context) error {
 		report:   e.report,
 	})
 	if err := e.Register(e.stream); err != nil {
+		return err
+	}
+
+	e.notify = newNotifyOut(fallback.Int(params.NotifyCapacity, notifyCapacity), func(notice domainlog.Notice) {
+		if e.ebus == nil {
+			return
+		}
+		e.ebus.Emit(event.TopicNoticeAppended, event.NoticeAppended{
+			ID: notice.ID, Label: notice.Label, Title: notice.Title, Content: notice.Content,
+			Level: notice.Level.String(), At: notice.Time.UnixMilli(),
+		})
+	})
+	if err := e.Register(e.notify); err != nil {
 		return err
 	}
 

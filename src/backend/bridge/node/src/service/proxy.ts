@@ -221,6 +221,24 @@ export const proxyHandlers: Record<string, Handler> = {};
 
 proxyHandlers['proxy.start'] = async (packet): Promise<Outgoing> => {
   const req = decodeData<StartRequest>(packet);
+
+  // 幂等: 同一 proxyId 已经启动过 -> 不再拉起第二个实例(双启动会争抢端口)
+  const existing = instances.get(req.proxyId);
+  if (existing) {
+    await waitReady(existing.uiport, 3000).catch(() => undefined);
+    return {
+      id: packet.id,
+      kind: kind.stream,
+      name: 'proxy.started',
+      data: {
+        proxyId: req.proxyId,
+        pid: 0,
+        port: existing.port,
+        uiport: existing.uiport,
+        url: `http://${req.host}:${existing.uiport}`,
+      },
+    };
+  }
   let startedPid = 0;
   const root = resolveWhistleRoot();
   const starting = loadStarting(root);
@@ -242,8 +260,16 @@ proxyHandlers['proxy.start'] = async (packet): Promise<Outgoing> => {
 
     await new Promise<void>((resolve, reject) => {
       starting.cli.start(key, options, (err: unknown) => {
-        if (err) reject(new Error(`starting.cli.start failed: ${String(err)}`));
-        else resolve();
+        // starting 的约定: 回调 err=true 表示"按配置已在运行"(见 starting/lib/cli.js 的 isRunning 分支)
+        if (err === true) {
+          resolve();
+          return;
+        }
+        if (err) {
+          reject(new Error(`starting.cli.start failed: ${String(err)}`));
+          return;
+        }
+        resolve();
       });
     });
     await waitReady(req.uiport, 15000);

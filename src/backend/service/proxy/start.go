@@ -129,6 +129,20 @@ type CaptureTarget struct {
 	URL    string `json:"url"`
 }
 
+// runningItem 把"已在运行"的行转成对外结果(不改库, 不重启实例)。
+func (s *Service) runningItem(row Proxy) (StartItem, error) {
+	parsed, err := parseRules(row.Rules)
+	if err != nil {
+		return StartItem{}, err
+	}
+	port := toIntValue(parsed.Port, 0)
+	uiPort := toIntValue(parsed.UIPort, 0)
+	return StartItem{
+		ID: row.ID, Name: row.Name, Target: targetFrom(parsed.Host, port),
+		Port: port, UIPort: uiPort,
+	}, nil
+}
+
 // Running 返回可用于抓包页的代理实例: status=running 且 rules.uiport > 0。
 // 只从数据库推导 —— 重启后状态可能过期, 但"是否真的在监听"由前端 iframe 打开时暴露,
 // 这里不做额外探测(避免每次进页面都去连端口)。
@@ -234,6 +248,20 @@ func (s *Service) Start(_ domaincontext.Context, ids []string) (StartResult, err
 			result.Failed = append(result.Failed, StartFailure{ID: id, Reason: err.Error()})
 			continue
 		}
+		// 已在运行: 幂等返回(不重复拉起, 也不把状态写成 error)。
+		// 直接重复启动会让 starting 回调 err=true, 早先的实现把它当失败 ->
+		// 运行中的代理被标成 error, 这就是"双启动错误"的来源。
+		if row.Status == StatusRunning {
+			item, itemErr := s.runningItem(row)
+			if itemErr != nil {
+				result.Failed = append(result.Failed, StartFailure{ID: row.ID, Name: row.Name, Reason: itemErr.Error()})
+				continue
+			}
+			s.info("proxy: already running", logkit.F("id", row.ID), logkit.F("name", row.Name))
+			result.Items = append(result.Items, item)
+			continue
+		}
+
 		req, err := s.prepareStartRequest(row)
 		if err != nil {
 			s.fail("start", row.Name, err)
@@ -243,7 +271,10 @@ func (s *Service) Start(_ domaincontext.Context, ids []string) (StartResult, err
 
 		info, err := s.starter.Start(ctx, req)
 		if err != nil {
-			s.markStatus(row.ID, StatusError)
+			// 不覆盖已运行状态: 失败可能是"已在运行"/探测超时, 直接标 error 会误伤
+			if row.Status != StatusRunning {
+				s.markStatus(row.ID, StatusError)
+			}
 			s.fail("start", row.Name, err)
 			result.Failed = append(result.Failed, StartFailure{ID: row.ID, Name: row.Name, Reason: err.Error()})
 			continue

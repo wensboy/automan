@@ -285,3 +285,31 @@ func TestRunningReturnsCaptureTargets(t *testing.T) {
 		t.Fatalf("未配置 uiport 不应返回, got %+v err=%v", got, err)
 	}
 }
+
+// 双启动: 已 running 的行再次 Start 应幂等返回, 不再拉起实例, 也不把状态写成 error。
+func TestStartIsIdempotentWhenRunning(t *testing.T) {
+	starter := &fakeStarter{}
+	svc, store, logger := startService(t, starter, `{}`)
+	store.row = &Proxy{ID: "p1", Name: "demo", Status: StatusRunning,
+		Rules: `{"host":"127.0.0.1","port":8899,"uiport":8900}`}
+
+	result, err := svc.Start(nil, []string{"p1"})
+	if err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	if len(result.Items) != 1 || len(result.Failed) != 0 {
+		t.Fatalf("已在运行应作为成功项返回, got %+v", result)
+	}
+	if len(starter.requests) != 0 {
+		t.Fatalf("不应再次调用 starter, got %d 次", len(starter.requests))
+	}
+	if result.Items[0].Target != "127.0.0.1:8899" || result.Items[0].UIPort != 8900 {
+		t.Fatalf("应回传现有参数, got %+v", result.Items[0])
+	}
+	for _, exec := range store.execs {
+		if strings.Contains(exec.sql, "status = ?") {
+			t.Fatalf("已在运行不应写状态, got %q", exec.sql)
+		}
+	}
+	logger.find(t, "proxy: already running")
+}

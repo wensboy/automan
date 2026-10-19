@@ -14,6 +14,11 @@ const (
 	TopicSettingsSaved Topic = "settings.saved"
 	// TopicLogSync 请求把内存缓冲的日志落盘.
 	TopicLogSync Topic = "log.sync"
+	// TopicNoticeAppended 在产生一条运行时提示时广播.
+	TopicNoticeAppended Topic = "notice.appended"
+	// TopicNoticeCleared 在 UI 清除提示队列时广播.
+	TopicNoticeCleared Topic = "notice.cleared"
+
 	// TopicLogDropped 在日志溢出或落盘失败时广播.
 	TopicLogDropped Topic = "log.dropped"
 	// TopicSessionSignup 在用户注册成功时广播.

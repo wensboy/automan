@@ -2,6 +2,8 @@ import * as React from "react"
 import { BellOffIcon, Trash2Icon } from "lucide-react"
 
 import SwitchButton from "@/components/custom/share/switch-button"
+import { toast } from "sonner"
+
 import { Button } from "@/components/ui/button"
 import {
   Drawer,
@@ -10,11 +12,17 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { notices as seedNotices, type Notice } from "@/mock/notifications"
 
 import NoticeItem from "./notice-item"
 import NoticeSearch from "./notice-search"
 import { staticValue } from "@/components/custom/share/provider/static-provider"
+import {
+  clearNotices,
+  dismissNotice,
+  markNoticesRead,
+  snapshotNoticeState,
+  subscribeNotices,
+} from "@/lib/notice"
 
 /**
  * 通知抽屉: 从右侧滑出, 自上而下为 标题 / 搜索 / 操作行 / 可滚动列表。
@@ -27,8 +35,14 @@ export default function NoticeDrawer({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const [items, setItems] = React.useState<Notice[]>(seedNotices)
+  // 数据源是后端队列: 事件到达即刷新(useSyncExternalStore 避免手写订阅)
+  const { items } = React.useSyncExternalStore(subscribeNotices, snapshotNoticeState)
   const [query, setQuery] = React.useState("")
+
+  // 打开抽屉 = 已读(铃铛红点归零); 队列本身不清
+  React.useEffect(() => {
+    if (open) markNoticesRead()
+  }, [open])
   const [dnd, setDnd] = React.useState(false)
 
   const keyword = query.trim().toLowerCase()
@@ -62,7 +76,12 @@ export default function NoticeDrawer({
               variant="outline"
               size="icon"
               aria-label={staticValue("sidebar.notice.clear")}
-              onClick={() => setItems([])}
+              onClick={() => {
+                // 先清后端队列(保证重启/其它窗口一致), 失败则提示并保留列表
+                void clearNotices().catch((error: unknown) => {
+                  toast.error(error instanceof Error ? error.message : String(error))
+                })
+              }}
             >
               <Trash2Icon className="size-4" />
             </Button>
@@ -73,9 +92,7 @@ export default function NoticeDrawer({
                 <NoticeItem
                   key={notice.id}
                   notice={notice}
-                  onDismiss={(id) =>
-                    setItems((prev) => prev.filter((item) => item.id !== id))
-                  }
+                  onDismiss={dismissNotice}
                 />
               ))}
               {visible.length === 0 && (

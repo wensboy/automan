@@ -73,6 +73,10 @@ func (e *Engine) Init(ctx context.Context) error {
 	unsubLogout := ebus.Subscribe(event.TopicSessionLogout, e.forwardSessionLogout)
 	unsubExpired := ebus.Subscribe(event.TopicSessionExpired, e.forwardSessionExpired)
 
+	// 运行时提示(notification): 追加与清空
+	unsubNotice := ebus.Subscribe(event.TopicNoticeAppended, e.forwardNoticeAppended)
+	unsubNoticeCleared := ebus.Subscribe(event.TopicNoticeCleared, e.forwardNoticeCleared)
+
 	// 日志流: 订阅日志引擎的二级总线(不经主总线, 避免高频日志卷入所有订阅者),
 	// 批量转成前端事件 "log:stream" (见 docs/design/v16.md 第 3/6 节)。
 	unsubLog := func() {}
@@ -95,6 +99,8 @@ func (e *Engine) Init(ctx context.Context) error {
 		unsubLogin()
 		unsubLogout()
 		unsubExpired()
+		unsubNotice()
+		unsubNoticeCleared()
 		unsubLog()
 	}
 	return nil
@@ -229,4 +235,26 @@ func (e *Engine) forwardSessionExpired(payload any) {
 		return
 	}
 	e.app.Event.Emit("session:expired", expired.UserID, expired.Username, expired.At)
+}
+
+// forwardNoticeAppended 转发一条运行时提示(前端 toast + 抽屉追加).
+func (e *Engine) forwardNoticeAppended(payload any) {
+	notice, ok := cast.As[event.NoticeAppended](payload)
+	if !ok || e.app == nil {
+		return
+	}
+	// 单个对象作为载荷: 前端 handlers 读 event.data, 位置参数在不同版本下形态不一致
+	e.app.Event.Emit("notify:append", map[string]any{
+		"id": notice.ID, "label": notice.Label, "title": notice.Title,
+		"content": notice.Content, "level": notice.Level, "at": notice.At,
+	})
+}
+
+// forwardNoticeCleared 转发提示队列清空(所有窗口同步).
+func (e *Engine) forwardNoticeCleared(payload any) {
+	cleared, ok := cast.As[event.NoticeCleared](payload)
+	if !ok || e.app == nil {
+		return
+	}
+	e.app.Event.Emit("notify:cleared", map[string]any{"at": cleared.At})
 }

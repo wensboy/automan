@@ -29,6 +29,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { staticValue } from "@/components/custom/share/provider/static-provider"
+import { snapshotNoticeState, subscribeNotices } from "@/lib/notice"
 
 /**
  * 底部用户区: 头像 + 下拉菜单 (显示效果对齐 dashboard-01)。
@@ -54,6 +55,7 @@ export default function NavUser({
   const loginAtValue = loginAt()
   const subtitle = loginAtValue ? formatDateTime(loginAtValue) : user.email
   const [noticesOpen, setNoticesOpen] = React.useState(false)
+  const { unread } = React.useSyncExternalStore(subscribeNotices, snapshotNoticeState)
   const [accountOpen, setAccountOpen] = React.useState(false)
 
   const logout = async () => {
@@ -115,6 +117,11 @@ export default function NavUser({
                 <DropdownMenuItem onClick={() => setNoticesOpen(true)}>
                   <BellIcon />
                   {staticValue("sidebar.navUser.notifications")}
+                  {unread > 0 && (
+                    <span className="ml-auto rounded-full bg-destructive px-1.5 text-[10px] font-medium leading-4 text-destructive-foreground">
+                      {unread > 99 ? "99+" : unread}
+                    </span>
+                  )}
                 </DropdownMenuItem>
               </DropdownMenuGroup>
               <DropdownMenuSeparator />

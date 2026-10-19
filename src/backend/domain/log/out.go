@@ -5,6 +5,8 @@ const (
 	OutConsole = "console"
 	OutDisk    = "disk"
 	OutStream  = "stream"
+	// OutNotify 是运行时提示的出口(内存环形, 不落盘).
+	OutNotify = "notify"
 )
 
 // Out 是日志出口: 自带唯一 key; 过滤/格式化/批量/缓冲策略由 out 自持, 引擎不做任何过滤.

@@ -11,5 +11,6 @@
     "maxSize": 8,
     "streamIntervalMs": 120,
     "streamBatch": 128,
-    "streamQueue": 2048
+    "streamQueue": 2048,
+    "notifyCapacity": 200
 }

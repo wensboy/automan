@@ -90,3 +90,18 @@ type SessionExpired struct {
 	Username string
 	At       int64
 }
+
+// NoticeAppended 是一条运行时提示的载荷(前端 toast + 抽屉).
+type NoticeAppended struct {
+	ID      string
+	Label   string
+	Title   string
+	Content string
+	Level   string
+	At      int64
+}
+
+// NoticeCleared 表示提示队列被清空(所有窗口同步清空).
+type NoticeCleared struct {
+	At int64
+}
