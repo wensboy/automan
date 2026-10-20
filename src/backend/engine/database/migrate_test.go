@@ -46,9 +46,9 @@ func TestMigrateUpCreatesSchemaAndIsIdempotent(t *testing.T) {
 		t.Fatalf("proxies 表未创建: %v", err)
 	}
 
-	// 部分唯一索引: 只约束未删除行
+	// 部分唯一索引: 只约束未删除行; 000004 起唯一性口径变为"同一工作区内同名"
 	var indexSQL string
-	if err := db.QueryRow(`SELECT sql FROM sqlite_master WHERE type='index' AND name='idx_proxies_name_active'`).Scan(&indexSQL); err != nil {
+	if err := db.QueryRow(`SELECT sql FROM sqlite_master WHERE type='index' AND name='idx_proxies_workspace_name'`).Scan(&indexSQL); err != nil {
 		t.Fatalf("唯一索引缺失: %v", err)
 	}
 	if !contains(indexSQL, "deleted_at = 0") {

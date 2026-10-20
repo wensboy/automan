@@ -15,7 +15,7 @@
     "service": [
         {
             "code": 20000001,
-            "msg": "xxx fail"
+            "msg": "service fail"
         }
     ]
 }

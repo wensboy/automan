@@ -10,7 +10,8 @@ import {
 
 import AccountDialog from "@/components/custom/account/account-dialog"
 import NoticeDrawer from "@/components/custom/notice/notice-drawer"
-import { currentUser, loginAt, signOut } from "@/lib/auth"
+import { signOut } from "@/lib/auth"
+import { useSessionStore } from "@/store/session"
 import { formatDateTime } from "@/lib/format"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -49,10 +50,10 @@ export default function NavUser({
 }) {
   const { isMobile } = useSidebar()
   const navigate = useNavigate()
-  const me = currentUser()
+  const me = useSessionStore((state) => state.user)
   // 标题: 昵称为空时回退登录名; 副标题: 本次会话的登录时间
   const title = me?.nickname || me?.username || user.name
-  const loginAtValue = loginAt()
+  const loginAtValue = useSessionStore((state) => state.loginAt)
   const subtitle = loginAtValue ? formatDateTime(loginAtValue) : user.email
   const [noticesOpen, setNoticesOpen] = React.useState(false)
   const { unread } = React.useSyncExternalStore(subscribeNotices, snapshotNoticeState)

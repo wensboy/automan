@@ -121,6 +121,11 @@ type Service struct {
 	cfg      config
 	cfgMu    sync.RWMutex
 	unsub    []func()
+
+	// currentUser 是"最近一次有效会话"的用户 id: 供其它服务(如 proxy)做数据收束。
+	// 只保存在内存里, 不落库 —— 重启后由 Resume 重新确认。
+	currentUser string
+	userMu      sync.RWMutex
 }
 
 // New 创建会话服务并启动缓存清理.
@@ -236,6 +241,53 @@ func (s *Service) retune() {
 	}
 }
 
+// enforceSingleUser 保证"同一时间只有一个有效登录用户":
+// 新会话建立时, 把其它用户的会话全部作废(本机单用户使用场景, 避免旧用户数据继续可见)。
+func (s *Service) enforceSingleUser(userID string) {
+	trimmed := strings.TrimSpace(userID)
+	if trimmed == "" {
+		return
+	}
+	victims := make([]string, 0)
+	s.cache.Range(func(item *ttlcache.Item[string, entry]) bool {
+		if item.Value().UserID != trimmed {
+			victims = append(victims, item.Key())
+		}
+		return true
+	})
+	for _, key := range victims {
+		s.cache.Delete(key)
+	}
+	if len(victims) > 0 {
+		s.info("session: other users invalidated", logkit.F("keep", trimmed), logkit.F("count", len(victims)))
+	}
+}
+
+// CurrentUserID 返回最近一次有效会话的用户 id(未登录返回空串)。
+// 供其它服务按用户收束数据(例: proxies 只看当前用户的代理), 不对外暴露 token。
+func (s *Service) CurrentUserID() string {
+	s.userMu.RLock()
+	defer s.userMu.RUnlock()
+	return s.currentUser
+}
+
+func (s *Service) setCurrentUser(userID string) {
+	// 先作废其它用户的会话, 再记录当前用户(顺序不影响结果, 但语义上先清理)
+	s.enforceSingleUser(userID)
+	s.userMu.Lock()
+	s.currentUser = strings.TrimSpace(userID)
+	s.userMu.Unlock()
+}
+
+// clearCurrentUser 仅在退出的正是当前用户时清空(多会话下退掉其它会话不影响收束)。
+func (s *Service) clearCurrentUser(userID string) {
+	s.userMu.Lock()
+	if s.currentUser == strings.TrimSpace(userID) {
+		s.currentUser = ""
+	}
+	s.userMu.Unlock()
+}
+
 // SignUp 注册并立即登录.
 func (s *Service) SignUp(_ domaincontext.Context, input SignUpInput) (Session, error) {
 	username := strings.TrimSpace(input.Username)
@@ -278,6 +330,7 @@ func (s *Service) SignUp(_ domaincontext.Context, input SignUpInput) (Session, e
 	if err != nil {
 		return Session{}, err
 	}
+	s.setCurrentUser(row.ID)
 	s.writeLoginLog(row.ID, username, "success", "", authkit.HashToken(result.Token))
 	s.info("session: signup", logkit.F("id", row.ID), logkit.F("username", username))
 	s.emit(event.TopicSessionSignup, event.SessionSignup{UserID: row.ID, Username: username, At: now})
@@ -308,6 +361,7 @@ func (s *Service) SignIn(_ domaincontext.Context, username, password string) (Se
 	if err != nil {
 		return Session{}, err
 	}
+	s.setCurrentUser(row.ID)
 	s.writeLoginLog(row.ID, username, "success", "", authkit.HashToken(result.Token))
 	s.info("session: login", logkit.F("id", row.ID), logkit.F("username", username),
 		logkit.F("expiresAt", result.ExpiresAt))
@@ -323,6 +377,7 @@ func (s *Service) SignOut(_ domaincontext.Context, token string) error {
 	}
 	snapshot := item.Value()
 	s.cache.Delete(strings.TrimSpace(token))
+	s.clearCurrentUser(snapshot.UserID)
 	s.info("session: logout", logkit.F("id", snapshot.UserID), logkit.F("username", snapshot.Username))
 	s.emit(event.TopicSessionLogout, event.SessionLogout{
 		UserID: snapshot.UserID, Username: snapshot.Username, At: s.now().UnixMilli(),
@@ -367,6 +422,7 @@ func (s *Service) Resume(_ domaincontext.Context, token string) (Session, error)
 	s.cache.Set(token, entry{
 		UserID: row.ID, Username: row.Username, CreatedAt: loggedAt, ExpiresAt: expiresAt,
 	}, ttl)
+	s.setCurrentUser(row.ID)
 	return Session{Token: token, User: row.public(), ExpiresAt: expiresAt.UnixMilli(),
 		LoginAt: loggedAt.UnixMilli()}, nil
 }

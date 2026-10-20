@@ -95,7 +95,7 @@ func TestStatusCountsIgnoreStatusFilter(t *testing.T) {
 	for _, item := range store.queries {
 		if strings.Contains(item.sql, "GROUP BY status") {
 			aggregate = item.sql
-			if len(item.args) != 2 || item.args[0] != "%local%" {
+			if len(item.args) != 3 || item.args[0] != "w-test" || item.args[1] != "%local%" {
 				t.Fatalf("统计查询应只带搜索条件, got args=%v", item.args)
 			}
 		}

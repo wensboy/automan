@@ -78,6 +78,72 @@ type Option func(*Service)
 // WithStarter 注入执行链路适配器(未注入时 Start 会明确报错, 不会静默成功)。
 func WithStarter(starter Starter) Option { return func(s *Service) { s.starter = starter } }
 
+// WithCurrentUser 注入"当前用户 id"的读取函数(会话服务提供)。
+// 未注入或返回空串时不做用户收束 —— 便于测试与"尚未登录"的早期阶段。
+func WithCurrentUser(fn func() string) Option {
+	return func(s *Service) { s.currentUser = fn }
+}
+
+// userID 返回当前用户 id(去空白)。
+func (s *Service) userID() string {
+	if s.currentUser == nil {
+		return ""
+	}
+	return strings.TrimSpace(s.currentUser())
+}
+
+// WithCurrentWorkspace 注入"当前工作区 id"的读取函数(工作区服务提供)。
+// 未注入或返回空串时不做工作区收束(与用户收束同样的取舍)。
+func WithCurrentWorkspace(fn func() string) Option {
+	return func(s *Service) { s.currentWorkspace = fn }
+}
+
+// workspaceID 返回当前工作区 id(去空白)。
+func (s *Service) workspaceID() string {
+	if s.currentWorkspace == nil {
+		return ""
+	}
+	return strings.TrimSpace(s.currentWorkspace())
+}
+
+// requireWorkspace 约束"必须有当前工作区才能操作资源"。
+// 没有工作区时不隐式兜底(不自动创建、不跨工作区读取), 而是明确报错。
+func (s *Service) requireWorkspace() error {
+	if s.workspaceID() == "" {
+		return invalid("no workspace selected, create or pick one first")
+	}
+	return nil
+}
+
+// userScope 给 WHERE 追加用户收束条件(条件放在最前, 参数与条件顺序一致)。
+func (s *Service) userScope(where string) (string, []any) {
+	uid := s.userID()
+	if uid == "" {
+		return where, nil
+	}
+	return "user_id = ? AND " + where, []any{uid}
+}
+
+// scopeWhere 同 userScope, 但保留已有参数(列表/统计用)。
+func (s *Service) scopeWhere(where string, args []any) (string, []any) {
+	uid := s.userID()
+	wid := s.workspaceID()
+	clauses := make([]string, 0, 2)
+	prefix := make([]any, 0, 2)
+	if uid != "" {
+		clauses = append(clauses, "user_id = ?")
+		prefix = append(prefix, uid)
+	}
+	if wid != "" {
+		clauses = append(clauses, "workspace_id = ?")
+		prefix = append(prefix, wid)
+	}
+	if len(clauses) == 0 {
+		return where, args
+	}
+	return strings.Join(clauses, " AND ") + " AND " + where, append(prefix, args...)
+}
+
 // WithRoot 注入应用数据根(绝对路径): bridge.json 里的相对 basedir 会解析到它下面。
 func WithRoot(root string) Option { return func(s *Service) { s.root = root } }
 
@@ -148,7 +214,8 @@ func (s *Service) runningItem(row Proxy) (StartItem, error) {
 // 这里不做额外探测(避免每次进页面都去连端口)。
 func (s *Service) Running(_ domaincontext.Context) ([]CaptureTarget, error) {
 	rows := []Proxy{}
-	if _, err := s.query(&rows, selectColumns+` WHERE deleted_at = 0 AND status = ? ORDER BY name ASC`, StatusRunning); err != nil {
+	where, whereArgs := s.userScope("deleted_at = 0 AND status = ?")
+	if _, err := s.query(&rows, selectColumns+` WHERE `+where+` ORDER BY name ASC`, append(whereArgs, StatusRunning)...); err != nil {
 		return nil, err
 	}
 
@@ -238,6 +305,9 @@ func (s *Service) Start(_ domaincontext.Context, ids []string) (StartResult, err
 	if s.starter == nil {
 		return StartResult{}, invalid("proxy starter not configured")
 	}
+	if err := s.requireWorkspace(); err != nil {
+		return StartResult{}, err
+	}
 	result := StartResult{Items: []StartItem{}, Failed: []StartFailure{}}
 	ctx, cancel := stdctx.WithTimeout(stdctx.Background(), s.startTimeout())
 	defer cancel()
@@ -300,6 +370,9 @@ func (s *Service) Start(_ domaincontext.Context, ids []string) (StartResult, err
 
 // Stop 批量停止: 只改状态, 进程收尾由 node runtime 负责(超时强杀, 见 bridge.json)。
 func (s *Service) Stop(_ domaincontext.Context, ids []string) error {
+	if err := s.requireWorkspace(); err != nil {
+		return err
+	}
 	if s.starter == nil {
 		return invalid("proxy starter not configured")
 	}

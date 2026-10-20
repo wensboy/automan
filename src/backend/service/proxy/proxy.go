@@ -51,6 +51,8 @@ type Proxy struct {
 	Status      string `json:"status" db:"status"`
 	Rules       string `json:"rules" db:"rules"`
 	Description string `json:"description" db:"description"`
+	// WorkspaceID 是归属工作区(1:n); 历史行为空串。
+	WorkspaceID string `json:"workspaceId" db:"workspace_id"`
 	CreatedAt   int64  `json:"createdAt" db:"created_at"`
 	UpdatedAt   int64  `json:"updatedAt" db:"updated_at"`
 }
@@ -92,11 +94,15 @@ type Service struct {
 	rulesTemplate string
 	// root 是应用数据根(绝对路径): basedir/storage 都落在它下面。
 	// 不落到这里的相对路径会被当成子进程的 cwd -> 目录不存在 -> spawn ENOENT。
-	root        string
-	proxyRoot   string
-	stopTimeout time.Duration
-	startWait   time.Duration
-	index       *runtimeIndex
+	root      string
+	proxyRoot string
+	// currentUser 返回"当前登录用户 id"(会话服务提供); 为空表示无归属信息, 不做收束。
+	currentUser func() string
+	// currentWorkspace 返回"当前工作区 id"(工作区服务提供); 为空时不按工作区收束。
+	currentWorkspace func() string
+	stopTimeout      time.Duration
+	startWait        time.Duration
+	index            *runtimeIndex
 }
 
 // New 创建代理服务.
@@ -114,13 +120,17 @@ func New(store domainstore.Store, logger domainlog.Logger, opts ...Option) *Serv
 
 // List 返回满足条件的当前页与总数.
 func (s *Service) List(_ domaincontext.Context, query Query) (Page, error) {
-	where, args := buildFilter(query)
+	// 没有当前工作区: 不返回任何数据(避免跨工作区/跨用户误显示)
+	if s.workspaceID() == "" {
+		return Page{Items: []Proxy{}, Total: 0, Counts: map[string]int{}}, nil
+	}
+	where, args := s.scopeWhere(buildFilter(query))
 
 	total, err := s.count(where, args)
 	if err != nil {
 		return Page{}, err
 	}
-	countWhere, countArgs := buildCountFilter(query)
+	countWhere, countArgs := s.scopeWhere(buildCountFilter(query))
 	counts, err := s.statusCounts(countWhere, countArgs)
 	if err != nil {
 		return Page{}, err
@@ -155,6 +165,9 @@ func (s *Service) Get(_ domaincontext.Context, id string) (Proxy, error) {
 
 // Create 创建一条代理.
 func (s *Service) Create(_ domaincontext.Context, input Input) (Proxy, error) {
+	if err := s.requireWorkspace(); err != nil {
+		return Proxy{}, err
+	}
 	normalized, err := validate(input)
 	if err != nil {
 		s.reject("create", input.Name, err)
@@ -167,10 +180,20 @@ func (s *Service) Create(_ domaincontext.Context, input Input) (Proxy, error) {
 
 	now := s.now().UnixMilli()
 	id := s.newID()
-	_, err = s.exec(`INSERT INTO proxies
-        (id, name, target, status, rules, description, created_at, updated_at, deleted_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`,
-		id, normalized.Name, normalized.Target, normalized.Status, normalized.Rules, normalized.Description, now, now)
+	columns := "id, name, target, status, rules, description, created_at, updated_at, deleted_at"
+	values := "?, ?, ?, ?, ?, ?, ?, ?, 0"
+	args := []any{id, normalized.Name, normalized.Target, normalized.Status, normalized.Rules, normalized.Description, now, now}
+	if uid := s.userID(); uid != "" {
+		columns += ", user_id"
+		values += ", ?"
+		args = append(args, uid)
+	}
+	if wid := s.workspaceID(); wid != "" {
+		columns += ", workspace_id"
+		values += ", ?"
+		args = append(args, wid)
+	}
+	_, err = s.exec(`INSERT INTO proxies (`+columns+`) VALUES (`+values+`)`, args...)
 	if err != nil {
 		s.fail("create", id, err)
 		return Proxy{}, err
@@ -182,6 +205,9 @@ func (s *Service) Create(_ domaincontext.Context, input Input) (Proxy, error) {
 
 // Update 更新一条代理(只改允许的字段).
 func (s *Service) Update(_ domaincontext.Context, id string, input Input) (Proxy, error) {
+	if err := s.requireWorkspace(); err != nil {
+		return Proxy{}, err
+	}
 	current, err := s.mustGet(id)
 	if err != nil {
 		return Proxy{}, err
@@ -199,9 +225,10 @@ func (s *Service) Update(_ domaincontext.Context, id string, input Input) (Proxy
 	}
 
 	now := s.now().UnixMilli()
+	where, whereArgs := s.userScope("id = ? AND deleted_at = 0")
+	updateArgs := append([]any{normalized.Name, normalized.Target, normalized.Status, normalized.Rules, normalized.Description, now, id}, whereArgs...)
 	_, err = s.exec(`UPDATE proxies SET name = ?, target = ?, status = ?, rules = ?, description = ?, updated_at = ?
-        WHERE id = ? AND deleted_at = 0`,
-		normalized.Name, normalized.Target, normalized.Status, normalized.Rules, normalized.Description, now, id)
+        WHERE `+where, updateArgs...)
 	if err != nil {
 		s.fail("update", id, err)
 		return Proxy{}, err
@@ -243,13 +270,18 @@ func (s *Service) SetStatus(_ domaincontext.Context, ids []string, status string
 	}
 
 	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(cleaned)), ",")
-	args := make([]any, 0, len(cleaned)+3)
+	args := make([]any, 0, len(cleaned)+4)
 	args = append(args, target, s.now().UnixMilli(), target)
 	for _, id := range cleaned {
 		args = append(args, id)
 	}
+	suffix := ""
+	if uid := s.userID(); uid != "" {
+		suffix = " AND user_id = ?"
+		args = append(args, uid)
+	}
 	result, err := s.exec(`UPDATE proxies SET status = ?, updated_at = ?
-        WHERE deleted_at = 0 AND status <> ? AND id IN (`+placeholders+`)`, args...)
+        WHERE deleted_at = 0 AND status <> ? AND id IN (`+placeholders+`)`+suffix, args...)
 	if err != nil {
 		s.fail("setStatus", target, err)
 		return 0, err
@@ -264,12 +296,17 @@ func (s *Service) SetStatus(_ domaincontext.Context, ids []string, status string
 
 // Delete 逻辑删除(置 deleted_at), 之后同名可重建.
 func (s *Service) Delete(_ domaincontext.Context, id string) error {
+	if err := s.requireWorkspace(); err != nil {
+		return err
+	}
 	current, err := s.mustGet(id)
 	if err != nil {
 		return err
 	}
 	now := s.now().UnixMilli()
-	result, err := s.exec(`UPDATE proxies SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at = 0`, now, now, id)
+	where, whereArgs := s.userScope("id = ? AND deleted_at = 0")
+	deleteArgs := append([]any{now, now, id}, whereArgs...)
+	result, err := s.exec(`UPDATE proxies SET deleted_at = ?, updated_at = ? WHERE `+where, deleteArgs...)
 	if err != nil {
 		s.fail("delete", id, err)
 		return err
@@ -283,7 +320,7 @@ func (s *Service) Delete(_ domaincontext.Context, id string) error {
 
 // ---- 内部: 查询与校验 ----
 
-const selectColumns = `SELECT id, name, target, status, rules, description, created_at, updated_at FROM proxies`
+const selectColumns = `SELECT id, name, target, status, rules, description, workspace_id, created_at, updated_at FROM proxies`
 
 // searchClause 返回 name/target 的模糊搜索条件(无关键词时返回空串)。
 func searchClause(query Query) (string, []any) {
@@ -414,7 +451,12 @@ func changedFields(current Proxy, next Input) []string {
 
 // ensureNameFree 保证未删除行里名字唯一(重复 -> 明确错误); 数据库的部分唯一索引是最后一道防线。
 func (s *Service) ensureNameFree(name, excludeID string) error {
-	total, err := s.count("name = ? AND deleted_at = 0 AND id <> ?", []any{name, excludeID})
+	where, whereArgs := s.userScope("name = ? AND deleted_at = 0 AND id <> ?")
+	if wid := s.workspaceID(); wid != "" {
+		where = where + " AND workspace_id = ?"
+		whereArgs = append(whereArgs, wid)
+	}
+	total, err := s.count(where, append([]any{name, excludeID}, whereArgs...))
 	if err != nil {
 		return err
 	}
@@ -430,7 +472,13 @@ func (s *Service) mustGet(id string) (Proxy, error) {
 	}
 	// 取单行也走切片查询: Into 只支持切片(sqlx.Select), 空结果即未找到
 	items := []Proxy{}
-	if _, err := s.query(&items, selectColumns+` WHERE id = ? AND deleted_at = 0`, id); err != nil {
+	queryArgs := []any{id}
+	clause := `deleted_at = 0`
+	if uid := s.userID(); uid != "" {
+		clause += ` AND user_id = ?`
+		queryArgs = append(queryArgs, uid)
+	}
+	if _, err := s.query(&items, selectColumns+` WHERE id = ? AND `+clause, queryArgs...); err != nil {
 		return Proxy{}, err
 	}
 	if len(items) == 0 {

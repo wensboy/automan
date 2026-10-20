@@ -17,6 +17,7 @@ import {
 } from "../../../bindings/github.com/wensboy/automan/backend/api/web/proxyservice"
 import type { ProxyAction, ProxyApplication } from "@/mock/proxies"
 import { staticValue } from "@/components/custom/share/provider/static-provider"
+import { useWorkspaceStore } from "@/store/workspace"
 import { toPayload, type Input, type Proxy, type ProxyStatus, type ProxyStatusFilter } from "@/components/custom/proxy/model"
 
 /** 每页行数可选值 (页脚的选择器)。 */
@@ -79,9 +80,11 @@ export default function Proxy() {
     }
   }, [search, status, page, rowsPerPage])
 
+  // 工作区切换后重新拉取(代理按工作区隔离)
+  const workspaceId = useWorkspaceStore((state) => state.currentId)
   React.useEffect(() => {
     void reload()
-  }, [reload])
+  }, [reload, workspaceId])
 
   // rules 模板来自后端(data/default/proxy.rules.json), 新建代理时作为编辑器初始内容。
   // 失败**不再静默**: 取不到就让用户看到原因, 否则只会表现为编辑器停在 {}。

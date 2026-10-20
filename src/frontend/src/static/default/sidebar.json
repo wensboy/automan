@@ -267,5 +267,15 @@
                 "icon": "wrench"
             }
         ]
+    },
+    "workspace": {
+        "label": "Workspaces",
+        "subtitle": "Workspace",
+        "empty": "No workspace",
+        "add": "Add workspace",
+        "delete": "Delete workspace",
+        "placeholder": "Workspace name",
+        "confirm": "Create",
+        "cancel": "Cancel"
     }
 }

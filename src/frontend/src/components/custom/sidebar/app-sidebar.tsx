@@ -11,7 +11,7 @@ import {
 import NavMain from "./nav-main"
 import NavSecondary from "./nav-secondary"
 import NavUser from "./nav-user"
-import TeamSwitcher from "./team-switcher"
+import WorkspaceSwitcher from "./workspace-switcher"
 import { useStatic } from "@/components/custom/share/provider/static-provider"
 
 /** 应用侧边栏: 结构固定, 数据来自静态数据 provider。 */
@@ -21,7 +21,7 @@ export default function AppSidebar({ ...props }: React.ComponentProps<typeof Sid
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <TeamSwitcher teams={sidebar.teams} />
+        <WorkspaceSwitcher />
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={sidebar.navMain} />

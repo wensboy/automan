@@ -54,6 +54,8 @@ func startService(t *testing.T, starter Starter, template string) (*Service, *fa
 				`{"node":{"services":{"proxy":{"root":"proxies","stopTimeoutMs":5000}}}}`)},
 		}),
 	)
+	// 资源操作要求"有当前工作区"(v21 §10): 测试默认给一个
+	svc.currentWorkspace = func() string { return "w-test" }
 	svc.now = func() time.Time { return time.UnixMilli(1700000000000) }
 	svc.newID = func() string { return "p1" }
 	return svc, store, logger
@@ -312,4 +314,67 @@ func TestStartIsIdempotentWhenRunning(t *testing.T) {
 		}
 	}
 	logger.find(t, "proxy: already running")
+}
+
+// 用户收束: 设了当前用户时, 创建写入 user_id、列表按 user_id 过滤。
+func TestUserScoping(t *testing.T) {
+	svc, store, _ := startService(t, &fakeStarter{}, `{}`)
+	store.total = 0 // 同名检查: 无同名行
+	svc.currentUser = func() string { return "u-1" }
+
+	if _, err := svc.Create(nil, Input{Name: "demo", Rules: `{"host":"127.0.0.1","port":8899}`}); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if len(store.execs) == 0 || !strings.Contains(store.execs[0].sql, "user_id") {
+		t.Fatalf("创建应写入 user_id, got %+v", store.execs)
+	}
+	found := false
+	for _, arg := range store.execs[0].args {
+		if value, ok := arg.(string); ok && value == "u-1" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("创建参数应包含当前用户 id, got %+v", store.execs[0].args)
+	}
+
+	// 列表: WHERE 里带 user_id 条件
+	if _, err := svc.List(nil, Query{Page: 1, PageSize: 10}); err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	scoped := false
+	for _, query := range store.queries {
+		if strings.Contains(query.sql, "SELECT COUNT(*)") && strings.Contains(query.sql, "user_id = ?") {
+			scoped = true
+		}
+	}
+	if !scoped {
+		t.Fatalf("列表/统计应带 user_id 收束, got %+v", store.execs)
+	}
+}
+
+// 未选择工作区: 资源操作被明确约束(不隐式兜底), 列表返回空。
+func TestRequiresWorkspace(t *testing.T) {
+	svc, _, _ := startService(t, &fakeStarter{}, `{}`)
+	svc.currentWorkspace = func() string { return "" }
+
+	if _, err := svc.Create(nil, Input{Name: "demo", Rules: `{"host":"127.0.0.1","port":8899}`}); err == nil ||
+		!strings.Contains(err.Error(), "no workspace selected") {
+		t.Fatalf("无工作区时创建应被拒, got %v", err)
+	}
+	if err := svc.Delete(nil, "p1"); err == nil {
+		t.Fatal("无工作区时删除应被拒")
+	}
+	if _, err := svc.Start(nil, []string{"p1"}); err == nil ||
+		!strings.Contains(err.Error(), "no workspace selected") {
+		t.Fatalf("无工作区时启动应被拒, got %v", err)
+	}
+
+	page, err := svc.List(nil, Query{Page: 1, PageSize: 10})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if page.Total != 0 || len(page.Items) != 0 {
+		t.Fatalf("无工作区时列表应为空, got %+v", page)
+	}
 }

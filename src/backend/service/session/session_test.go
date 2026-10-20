@@ -354,3 +354,41 @@ func TestSettingsChangeRetunesLiveSessions(t *testing.T) {
 		t.Fatalf("无关键不应改动会话")
 	}
 }
+
+// 当前用户: 登录/恢复后可用于数据收束; 退出后清空(不影响其它会话的判定)。
+func TestCurrentUserIDFollowsSession(t *testing.T) {
+	h := newHarness(t)
+	session, err := h.svc.SignUp(nil, SignUpInput{Username: "zoe", Password: "password123"})
+	if err != nil {
+		t.Fatalf("SignUp: %v", err)
+	}
+	if got := h.svc.CurrentUserID(); got != session.User.ID {
+		t.Fatalf("注册后当前用户应为 %q, got %q", session.User.ID, got)
+	}
+
+	if err := h.svc.SignOut(nil, session.Token); err != nil {
+		t.Fatalf("SignOut: %v", err)
+	}
+	if got := h.svc.CurrentUserID(); got != "" {
+		t.Fatalf("退出后当前用户应为空, got %q", got)
+	}
+}
+
+// 单用户: 新用户登录会使其它用户的会话失效(本机同时只允许一个有效登录用户)。
+func TestSingleActiveUser(t *testing.T) {
+	h := newHarness(t)
+	first, err := h.svc.SignUp(nil, SignUpInput{Username: "alice", Password: "password123"})
+	if err != nil {
+		t.Fatalf("SignUp(alice): %v", err)
+	}
+	if _, err := h.svc.SignUp(nil, SignUpInput{Username: "bob", Password: "password123"}); err != nil {
+		t.Fatalf("SignUp(bob): %v", err)
+	}
+
+	if _, err := h.svc.Current(nil, first.Token); err == nil {
+		t.Fatal("旧用户的会话应已失效")
+	}
+	if got := h.svc.CurrentUserID(); got == "" || got == first.User.ID {
+		t.Fatalf("当前用户应为新登录用户, got %q", got)
+	}
+}

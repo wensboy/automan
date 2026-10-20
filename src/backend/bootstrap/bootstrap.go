@@ -38,6 +38,7 @@ import (
 	servicesession "github.com/wensboy/automan/backend/service/session"
 	servicesettings "github.com/wensboy/automan/backend/service/settings"
 	serviceuser "github.com/wensboy/automan/backend/service/user"
+	serviceworkspace "github.com/wensboy/automan/backend/service/workspace"
 )
 
 // Run 组装并执行完整启动链路.
@@ -65,6 +66,7 @@ func Run(mode context.Mode, assets, data fs.FS) error {
 			application.NewService(apiweb.NewNoticeService(rt)),
 			application.NewService(apiweb.NewHelpService(rt)),
 			application.NewService(apiweb.NewCommandService(rt)),
+			application.NewService(apiweb.NewWorkspaceService(rt)),
 		),
 	)
 
@@ -160,25 +162,6 @@ func registerServices(rt *rtengine.Runtime, data fs.FS, fields map[string]schema
 	if !ok {
 		return nil, errors.New("bootstrap: log engine unavailable")
 	}
-	// 代理启动链路: 只把只读数据源与执行链路适配器递进服务;
-	// 模板/basedir 由 service 内部经数据源读取(v19 §12: 能用内部完成的不要堆在组合根)
-	proxyOpts := []serviceproxy.Option{serviceproxy.WithData(data)}
-	// 数据根: 供相对 basedir/storage 解析成绝对路径(否则会成为子进程 cwd 而导致 ENOENT)
-	if rooter, ok := enginekit.Of[domainstore.Rooter](rt, "store"); ok {
-		proxyOpts = append(proxyOpts, serviceproxy.WithRoot(rooter.Root()))
-	}
-	// 执行链路的引擎在此解析; 适配与配表逻辑都在 service/proxy 内部(见 v19 §13)
-	if bridgeEngine, ok := enginekit.Of[*bridgeengine.Engine](rt, "bridge.node"); ok {
-		proxyOpts = append(proxyOpts, serviceproxy.WithBridge(bridgeEngine, bridgeEngine))
-	}
-	proxySrv := serviceproxy.New(db, logger, proxyOpts...)
-	// 启动期保证代理 basedir 存在(它是 node 侧 spawn 的 cwd, 也是 whistle storage 的父目录)
-	if err := proxySrv.EnsureBaseDir(); err != nil {
-		return nil, err
-	}
-	if err := srvkit.Register(rt, serviceproxy.Key, proxySrv); err != nil {
-		return nil, err
-	}
 
 	// 会话与用户: session 直接经 settings engine 读生效配置, user 只管用户数据(两个 srv 互不调用)
 	settingsEngine, ok := enginekit.Of[domainsettings.Store](rt, "settings")
@@ -197,6 +180,38 @@ func registerServices(rt *rtengine.Runtime, data fs.FS, fields map[string]schema
 		sessionSrv.Close()
 		return nil, err
 	}
+
+	// 工作区: user 1:n workspace 1:n proxy; "当前工作区"记在 workspace 服务内部
+	workspaceSrv := serviceworkspace.New(db, logger).WithCurrentUser(sessionSrv.CurrentUserID)
+	if err := srvkit.Register(rt, serviceworkspace.Key, workspaceSrv); err != nil {
+		return nil, err
+	}
+	// 代理启动链路: 只把只读数据源与执行链路适配器递进服务;
+	// 模板/basedir 由 service 内部经数据源读取(v19 §12: 能用内部完成的不要堆在组合根)
+	proxyOpts := []serviceproxy.Option{
+		serviceproxy.WithData(data),
+		// 代理数据按用户收束: 用户 id 由会话服务提供(未登录时为空 -> 不做收束)
+		serviceproxy.WithCurrentUser(sessionSrv.CurrentUserID),
+		// 代理归属工作区: 空表示尚未选择(不做该维度收束)
+		serviceproxy.WithCurrentWorkspace(func() string { return workspaceSrv.Current(rt) }),
+	}
+	// 数据根: 供相对 basedir/storage 解析成绝对路径(否则会成为子进程 cwd 而导致 ENOENT)
+	if rooter, ok := enginekit.Of[domainstore.Rooter](rt, "store"); ok {
+		proxyOpts = append(proxyOpts, serviceproxy.WithRoot(rooter.Root()))
+	}
+	// 执行链路的引擎在此解析; 适配与配表逻辑都在 service/proxy 内部(见 v19 §13)
+	if bridgeEngine, ok := enginekit.Of[*bridgeengine.Engine](rt, "bridge.node"); ok {
+		proxyOpts = append(proxyOpts, serviceproxy.WithBridge(bridgeEngine, bridgeEngine))
+	}
+	proxySrv := serviceproxy.New(db, logger, proxyOpts...)
+	// 启动期保证代理 basedir 存在(它是 node 侧 spawn 的 cwd, 也是 whistle storage 的父目录)
+	if err := proxySrv.EnsureBaseDir(); err != nil {
+		return nil, err
+	}
+	if err := srvkit.Register(rt, serviceproxy.Key, proxySrv); err != nil {
+		return nil, err
+	}
+
 	if err := srvkit.Register(rt, servicehelp.Key, servicehelp.New(data, logger, ebus)); err != nil {
 		return nil, err
 	}

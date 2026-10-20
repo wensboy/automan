@@ -160,6 +160,8 @@ func newService() (*Service, *fakeStore, *fakeLogger) {
 	store := &fakeStore{affected: 1}
 	logger := &fakeLogger{}
 	svc := New(store, logger)
+	// 资源操作要求"有当前工作区"(v21 §10): 测试默认给一个
+	svc.currentWorkspace = func() string { return "w-test" }
 	svc.now = func() time.Time { return time.UnixMilli(1700000000000) }
 	svc.newID = func() string { return "test-id-1" }
 	return svc, store, logger
@@ -338,8 +340,8 @@ func TestListBuildsFilterAndPaging(t *testing.T) {
 			t.Fatalf("查询缺少 %q: %q", fragment, query.sql)
 		}
 	}
-	// 参数顺序: status, like, like, pageSize, offset
-	if fmt.Sprint(query.args) != fmt.Sprint([]any{StatusRunning, "%local%", "%local%", 5, 10}) {
+	// 参数顺序: workspace(收束) -> status, like, like, pageSize, offset
+	if fmt.Sprint(query.args) != fmt.Sprint([]any{"w-test", StatusRunning, "%local%", "%local%", 5, 10}) {
 		t.Fatalf("查询参数异常: %v", query.args)
 	}
 }

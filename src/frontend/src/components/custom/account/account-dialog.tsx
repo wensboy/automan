@@ -24,7 +24,8 @@ import {
 import { useStatic, staticValue } from "@/components/custom/share/provider/static-provider"
 import { ChangePassword } from "../../../../bindings/github.com/wensboy/automan/backend/api/web/sessionservice"
 import { Update as UpdateUser } from "../../../../bindings/github.com/wensboy/automan/backend/api/web/userservice"
-import { clearSession, currentUser, storedToken, updateStoredUser } from "@/lib/auth"
+import { clearSession, storedToken, updateStoredUser } from "@/lib/auth"
+import { useSessionStore } from "@/store/session"
 
 /** 卡片操作行: 从右到左 [编辑(开关) / 保存 / 刷新]; dev 阶段只做反馈, 后续替换为实际行为。 */
 function CardActions({
@@ -84,7 +85,7 @@ export default function AccountDialog({
 
   // account 是 user 服务的调用方: 资料展示取自当前登录用户, 保存落库
   const navigate = useNavigate()
-  const me = currentUser()
+  const me = useSessionStore((state) => state.user)
   const [nickname, setNickname] = React.useState(me?.nickname || me?.username || sidebar.user.name)
   const [username, setUsername] = React.useState(me?.username ?? sidebar.user.email)
   const [avatar, setAvatar] = React.useState("/cool_morty.png")

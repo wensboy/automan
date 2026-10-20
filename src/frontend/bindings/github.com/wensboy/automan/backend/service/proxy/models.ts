@@ -43,6 +43,11 @@ export interface Proxy {
     "status": string;
     "rules": string;
     "description": string;
+
+    /**
+     * WorkspaceID 是归属工作区(1:n); 历史行为空串。
+     */
+    "workspaceId": string;
     "createdAt": number;
     "updatedAt": number;
 }

@@ -8,6 +8,7 @@ import * as ProxyService from "./proxyservice.js";
 import * as SessionService from "./sessionservice.js";
 import * as SettingsService from "./settingsservice.js";
 import * as UserService from "./userservice.js";
+import * as WorkspaceService from "./workspaceservice.js";
 export {
     CommandService,
     HelpService,
@@ -15,7 +16,8 @@ export {
     ProxyService,
     SessionService,
     SettingsService,
-    UserService
+    UserService,
+    WorkspaceService
 };
 
 export type {
