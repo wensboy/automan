@@ -2,6 +2,8 @@ import * as React from "react"
 import { ChevronRightIcon } from "lucide-react"
 
 import { cn } from "cn"
+
+import StepInput from "@/components/custom/share/step-input"
 import { toast } from "sonner"
 
 import ListInput from "@/components/custom/share/list-input"
@@ -183,18 +185,10 @@ function NumberControl({
   value: number
   onChange: (next: SettingsValue) => void
 }) {
-  // range 为 [min, max] 才用滑杆; range 为空则退化为手动输入(调用时解析), 不臆造边界
+  // range 为 [min, max] 才用滑杆; range 为空 -> 步进输入(左 +1 / 右 -1, 中间显示值)
   const { min, max } = rangeBounds(field)
   if (!isRanged(field)) {
-    return (
-      <Input
-        id={field.key}
-        type="number"
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-        className="h-8"
-      />
-    )
+    return <StepInput id={field.key} value={value} onChange={onChange} min={min} max={max} />
   }
   return (
     <Slider
