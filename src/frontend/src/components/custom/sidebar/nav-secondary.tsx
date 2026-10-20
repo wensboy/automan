@@ -1,5 +1,8 @@
 import * as React from "react"
 import { type LucideIcon } from "lucide-react"
+import { useNavigate } from "react-router"
+
+import { signOut } from "@/lib/auth"
 
 import CommandMenu from "@/components/custom/command/command-menu"
 import HelpDialog from "@/components/custom/help/help-dialog"
@@ -24,6 +27,25 @@ export default function NavSecondary({
   }[]
 } & React.ComponentProps<typeof SidebarGroup>) {
   const [openTitle, setOpenTitle] = React.useState<string | null>(null)
+  const navigate = useNavigate()
+
+  // 命令返回的 action -> UI 变化(命令本身不操作 UI, 由这里统一落地)
+  const handleCommandAction = (action: string) => {
+    switch (action) {
+      case "openSettings":
+      case "resetSettings":
+        setOpenTitle("Settings")
+        break
+      case "openHelp":
+        setOpenTitle("Help")
+        break
+      case "logout":
+        void signOut().finally(() => navigate("/login", { replace: true }))
+        break
+      default:
+        break
+    }
+  }
 
   return (
     <>
@@ -54,6 +76,7 @@ export default function NavSecondary({
       <CommandMenu
         open={openTitle === "Search"}
         onOpenChange={(open) => !open && setOpenTitle(null)}
+        onAction={handleCommandAction}
       />
     </>
   )

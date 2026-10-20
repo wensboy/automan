@@ -32,6 +32,7 @@ import (
 	"github.com/wensboy/automan/backend/internal/kits/schemakit"
 	"github.com/wensboy/automan/backend/internal/kits/srvkit"
 	"github.com/wensboy/automan/backend/internal/registry"
+	servicecommand "github.com/wensboy/automan/backend/service/command"
 	servicehelp "github.com/wensboy/automan/backend/service/help"
 	serviceproxy "github.com/wensboy/automan/backend/service/proxy"
 	servicesession "github.com/wensboy/automan/backend/service/session"
@@ -63,6 +64,7 @@ func Run(mode context.Mode, assets, data fs.FS) error {
 			application.NewService(apiweb.NewUserService(rt)),
 			application.NewService(apiweb.NewNoticeService(rt)),
 			application.NewService(apiweb.NewHelpService(rt)),
+			application.NewService(apiweb.NewCommandService(rt)),
 		),
 	)
 
@@ -196,6 +198,11 @@ func registerServices(rt *rtengine.Runtime, data fs.FS, fields map[string]schema
 		return nil, err
 	}
 	if err := srvkit.Register(rt, servicehelp.Key, servicehelp.New(data, logger, ebus)); err != nil {
+		return nil, err
+	}
+
+	// 命令系统: 清单来自 data/conf/command.json 的 runtime 段; 扩展命令在代码层 Register
+	if err := srvkit.Register(rt, servicecommand.Key, servicecommand.New(data, logger)); err != nil {
 		return nil, err
 	}
 	return sessionSrv.Close, nil

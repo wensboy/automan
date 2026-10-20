@@ -1,0 +1,35 @@
+{
+    "meta": {
+        "namespace": "conf/command"
+    },
+    "cli": {},
+    "runtime": {
+        "groups": [
+            "setting",
+            "session",
+            "proxy",
+            "automation"
+        ],
+        "setting": [
+            {
+                "cmd": "open",
+                "label": "Open",
+                "kbd": ""
+            },
+            {
+                "cmd": "reset",
+                "label": "Reset",
+                "kbd": ""
+            }
+        ],
+        "session": [
+            {
+                "cmd": "logout",
+                "label": "Logout",
+                "kbd": ""
+            }
+        ],
+        "proxy": [],
+        "automation": []
+    }
+}

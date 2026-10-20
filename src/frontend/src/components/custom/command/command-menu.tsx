@@ -1,8 +1,6 @@
 import * as React from "react"
 import { toast } from "sonner"
 
-import { settingsGroups } from "@/lib/settings"
-
 import {
   CommandDialog,
   CommandEmpty,
@@ -11,34 +9,52 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command"
-import { useStatic, staticValue } from "@/components/custom/share/provider/static-provider"
-
-
+import { staticValue } from "@/components/custom/share/provider/static-provider"
+import { List as ListCommands, Run as RunCommand } from "../../../../bindings/github.com/wensboy/automan/backend/api/web/commandservice"
+import type { Group } from "../../../../bindings/github.com/wensboy/automan/backend/service/command/models"
 
 /**
- * 命令面板 (由 nav-secondary 的 Search 项触发)。
- * 不自建弹层: 用 shadcn 的 CommandDialog (Dialog + Command 的官方组合, 标题/描述已 sr-only 处理)。
- * 数据复用既有来源 —— 侧栏导航取自 static, 设置分区取自 mock; dev 阶段选中后只给可见反馈。
+ * 命令面板 (nav-secondary 的 Search 入口)。
+ *
+ * 数据来源只有一处: command 服务的 List()(= data/conf/command.json 的 runtime 段)。
+ * 选中后调 Run(id) 让后端执行, 返回的 action 交给上层做 UI 变化(打开设置/登出…):
+ * 前端不判断"这条命令是什么", 只按 action 反应 —— 与 VSCode 的命令模型一致。
  */
 export default function CommandMenu({
   open,
   onOpenChange,
+  onAction,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onAction: (action: string, target?: string) => void
 }) {
-  const { icon, sidebar } = useStatic()
-  // 设置分区: 结构来自 static/default/settings.json, 展示文案/图标来自 sidebar.json;
-  // 图标名必须解析成组件再渲染 —— 直接写 <section.icon /> 会把 "video"/"link" 当成 HTML 标签
-  const sections = React.useMemo(
-    () => settingsGroups().map((group) => ({ ...group, Icon: icon(group.icon) })),
-    [icon],
-  )
+  const [groups, setGroups] = React.useState<Group[]>([])
 
-  const run = (label: string) => {
+  React.useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const loaded = await ListCommands()
+        if (!cancelled) setGroups(loaded ?? [])
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : String(error))
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [open])
+
+  const run = async (id: string) => {
     onOpenChange(false)
-    // dev 阶段: 真实动作 (路由跳转 / 打开对应弹窗) 待接, 先给反馈
-    toast.success(`${staticValue("sidebar.command.selected") ?? ""}${label}`)
+    try {
+      const result = await RunCommand(id)
+      if (result?.action) onAction(result.action, result.target ?? undefined)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error))
+    }
   }
 
   return (
@@ -46,30 +62,26 @@ export default function CommandMenu({
       <CommandInput placeholder={staticValue("sidebar.command.placeholder")} />
       <CommandList>
         <CommandEmpty>{staticValue("sidebar.command.empty")}</CommandEmpty>
-        <CommandGroup heading={staticValue("sidebar.command.pagesGroup")}>
-          {sidebar.navMain.map((item) => (
-            <CommandItem
-              key={item.title}
-              value={item.title}
-              onSelect={() => run(item.title)}
-            >
-              {item.icon && <item.icon />}
-              <span>{item.title}</span>
-            </CommandItem>
+        {groups
+          .filter((group) => (group.items ?? []).length > 0)
+          .map((group) => (
+            <CommandGroup key={group.name} heading={group.name}>
+              {(group.items ?? []).map((item) => (
+                <CommandItem
+                  key={item.id}
+                  value={`${item.label} ${item.id}`}
+                  onSelect={() => void run(item.id)}
+                >
+                  <span>{item.label}</span>
+                  {item.kbd ? (
+                    <kbd className="ml-auto rounded border bg-muted px-1 text-[10px] text-muted-foreground">
+                      {item.kbd}
+                    </kbd>
+                  ) : null}
+                </CommandItem>
+              ))}
+            </CommandGroup>
           ))}
-        </CommandGroup>
-        <CommandGroup heading={staticValue("sidebar.command.settingsGroup")}>
-          {sections.map((section) => (
-            <CommandItem
-              key={section.id}
-              value={section.label}
-              onSelect={() => run(section.label)}
-            >
-              <section.Icon />
-              <span>{section.label}</span>
-            </CommandItem>
-          ))}
-        </CommandGroup>
       </CommandList>
     </CommandDialog>
   )
