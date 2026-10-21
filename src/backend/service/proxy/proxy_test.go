@@ -159,7 +159,7 @@ func field(record domainlog.Record, key string) string {
 func newService() (*Service, *fakeStore, *fakeLogger) {
 	store := &fakeStore{affected: 1}
 	logger := &fakeLogger{}
-	svc := New(store, logger)
+	svc := New().WithStore(store).WithLogger(logger)
 	// 资源操作要求"有当前工作区"(v21 §10): 测试默认给一个
 	svc.currentWorkspace = func() string { return "w-test" }
 	svc.now = func() time.Time { return time.UnixMilli(1700000000000) }

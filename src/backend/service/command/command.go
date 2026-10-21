@@ -79,16 +79,18 @@ type Service struct {
 const commandPath = "data/conf/command.json"
 
 // New 创建命令服务并装配内置 handler.
-func New(data fs.FS, logger domainlog.Logger) *Service {
-	s := &Service{
-		data:     data,
-		logger:   logger,
-		now:      time.Now,
-		handlers: map[string]Handler{},
-	}
+// New 创建命令服务: 只做基础初始化(装配内置 handler); 外部依赖经 WithXxx 链式注入。
+func New() *Service {
+	s := &Service{now: time.Now, handlers: map[string]Handler{}}
 	s.registerBuiltin()
 	return s
 }
+
+// WithData 注入只读数据源(读 data/conf/command.json).
+func (s *Service) WithData(data fs.FS) *Service { s.data = data; return s }
+
+// WithLogger 注入日志出口.
+func (s *Service) WithLogger(logger domainlog.Logger) *Service { s.logger = logger; return s }
 
 // Register 是扩展点: 代码层面接入新命令(格式与内置一致: "<group>.<cmd>").
 func (s *Service) Register(id string, handler Handler) error {

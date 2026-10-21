@@ -79,9 +79,19 @@ type Service struct {
 }
 
 // New 创建帮助服务. data 为应用数据源: 内部固定读取 data/docs.
-func New(data fs.FS, logger domainlog.Logger, bus event.Bus) *Service {
-	return &Service{data: data, logger: logger, bus: bus, now: time.Now}
+// New 创建帮助服务: 只做基础初始化; 外部依赖经 WithXxx 链式注入。
+func New() *Service {
+	return &Service{now: time.Now}
 }
+
+// WithData 注入只读数据源(读 data/docs).
+func (s *Service) WithData(data fs.FS) *Service { s.data = data; return s }
+
+// WithLogger 注入日志出口.
+func (s *Service) WithLogger(logger domainlog.Logger) *Service { s.logger = logger; return s }
+
+// WithEventBus 注入事件总线(预留, 当前不发布事件).
+func (s *Service) WithEventBus(bus event.Bus) *Service { s.bus = bus; return s }
 
 const (
 	metaPath  = "data/docs/meta.json"

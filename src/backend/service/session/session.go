@@ -129,28 +129,42 @@ type Service struct {
 }
 
 // New 创建会话服务并启动缓存清理.
-func New(store domainstore.Store, settings domainsettings.Store, ebus event.Bus, logger domainlog.Logger) *Service {
+// New 创建会话服务: 只做基础初始化(缓存 + 清理协程); 外部依赖经 WithXxx 链式注入。
+func New() *Service {
 	s := &Service{
-		store:    store,
-		settings: settings,
-		ebus:     ebus,
-		logger:   logger,
-		cache:    ttlcache.New[string, entry](ttlcache.WithDisableTouchOnHit[string, entry]()),
-		now:      time.Now,
-		newID:    newID,
+		cache: ttlcache.New[string, entry](ttlcache.WithDisableTouchOnHit[string, entry]()),
+		now:   time.Now,
+		newID: newID,
 	}
 	s.cache.OnEviction(s.onEvicted)
+	go s.cache.Start()
+	return s
+}
+
+// WithStore 注入数据库 store.
+func (s *Service) WithStore(store domainstore.Store) *Service { s.store = store; return s }
+
+// WithSettings 注入设置引擎(注入后立即刷新生效配置).
+func (s *Service) WithSettings(settings domainsettings.Store) *Service {
+	s.settings = settings
 	s.refreshConfig()
-	// 设置变更走 ebus 订阅(服务同样订阅, 与"影响后端的 key 用 ebus 处理"的约定一致)
+	return s
+}
+
+// WithEventBus 注入事件总线并订阅设置变更(影响后端的 key 走 ebus).
+func (s *Service) WithEventBus(ebus event.Bus) *Service {
+	s.ebus = ebus
 	if ebus != nil {
 		s.unsub = append(s.unsub,
 			ebus.Subscribe(event.TopicSettingsChanged, s.onSettingsChanged),
 			ebus.Subscribe(event.TopicSettingsReloaded, s.onSettingsReloaded),
 		)
 	}
-	go s.cache.Start()
 	return s
 }
+
+// WithLogger 注入日志出口.
+func (s *Service) WithLogger(logger domainlog.Logger) *Service { s.logger = logger; return s }
 
 // Close 退订并停止清理协程(组合根在退出时调用).
 func (s *Service) Close() {

@@ -64,7 +64,7 @@ func newRealService(t *testing.T, user string) (*Service, *sqlx.DB) {
 		t.Fatalf("open: %v", err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	svc := New(&sqlStore{db: db}, nil).WithCurrentUser(func() string { return user })
+	svc := New().WithStore(&sqlStore{db: db}).WithCurrentUser(func() string { return user })
 	return svc, db
 }
 
@@ -129,5 +129,5 @@ func TestServiceAgainstRealSQLite(t *testing.T) {
 
 func newRealServiceWithDB(t *testing.T, db *sqlx.DB, user string) (*Service, *sqlx.DB) {
 	t.Helper()
-	return New(&sqlStore{db: db}, nil).WithCurrentUser(func() string { return user }), db
+	return New().WithStore(&sqlStore{db: db}).WithCurrentUser(func() string { return user }), db
 }

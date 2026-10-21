@@ -41,11 +41,27 @@ type Service struct {
 
 // New 创建设置服务.
 // fields 为 schema 解析出的键表(决定"哪些键可读写、各是什么类型"), defaults 为默认值(点号键)。
-func New(store domainsettings.Store, fields map[string]schemakit.Field, defaults map[string]any) *Service {
+// New 创建设置服务: 只做基础初始化; 外部依赖经 WithXxx 链式注入。
+func New() *Service {
+	return &Service{defaults: map[string]any{}}
+}
+
+// WithStore 注入设置引擎.
+func (s *Service) WithStore(store domainsettings.Store) *Service { s.store = store; return s }
+
+// WithFields 注入 schema 字段表.
+func (s *Service) WithFields(fields map[string]schemakit.Field) *Service {
+	s.fields = fields
+	return s
+}
+
+// WithDefaults 注入默认值层(nil 视为空表).
+func (s *Service) WithDefaults(defaults map[string]any) *Service {
 	if defaults == nil {
 		defaults = map[string]any{}
 	}
-	return &Service{store: store, fields: fields, defaults: defaults}
+	s.defaults = defaults
+	return s
 }
 
 // List 返回全部可配置键的生效值: 引擎有值取引擎值(含来源层), 否则回落默认值; 两者都无则不出现在结果里。

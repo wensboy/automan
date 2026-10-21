@@ -71,9 +71,16 @@ type Service struct {
 }
 
 // New 创建用户服务.
-func New(store domainstore.Store, logger domainlog.Logger) *Service {
-	return &Service{store: store, logger: logger, now: time.Now, newID: newID}
+// New 创建用户服务: 只做基础初始化; 外部依赖经 WithXxx 链式注入。
+func New() *Service {
+	return &Service{now: time.Now, newID: newID}
 }
+
+// WithStore 注入数据库 store.
+func (s *Service) WithStore(store domainstore.Store) *Service { s.store = store; return s }
+
+// WithLogger 注入日志出口.
+func (s *Service) WithLogger(logger domainlog.Logger) *Service { s.logger = logger; return s }
 
 // List 返回满足条件的当前页与总数.
 func (s *Service) List(_ domaincontext.Context, query Query) (Page, error) {

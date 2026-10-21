@@ -87,7 +87,7 @@ func newService() (*Service, *fakeStore) {
 		"proxy.bypass":       []any{"localhost"},
 	}
 	store := newFakeStore(map[string]any{})
-	return New(store, schemaFields(), defaults), store
+	return New().WithStore(store).WithFields(schemaFields()).WithDefaults(defaults), store
 }
 
 // 列表: 引擎有值取引擎值(带来源层), 否则回落默认值; 都缺失的键不出现。

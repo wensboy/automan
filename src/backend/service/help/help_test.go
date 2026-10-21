@@ -20,7 +20,7 @@ func newTestService() *Service {
 		"data/docs/outline/1.md": &fstest.MapFile{Data: []byte("# Quick Start")},
 		"data/docs/outline/2.md": &fstest.MapFile{Data: []byte("# Download")},
 	}
-	return New(data, nil, nil)
+	return New().WithData(data)
 }
 
 // meta 能解析出目录与版本(结构以 data/docs/meta.json 为准).
@@ -71,7 +71,7 @@ func TestDocRejectsMissingAndInvalid(t *testing.T) {
 
 // 用仓库里**真实的** data/docs 校验: meta 能解析, 目录首项能读出 markdown。
 func TestRealDocsAreReadable(t *testing.T) {
-	svc := New(os.DirFS("../../.."), nil, nil) // ../../.. = src/
+	svc := New().WithData(os.DirFS("../../..")) // ../../.. = src/
 	meta, err := svc.Meta(nil)
 	if err != nil {
 		t.Fatalf("真实 meta 解析失败: %v", err)

@@ -46,14 +46,15 @@ func startService(t *testing.T, starter Starter, template string) (*Service, *fa
 	t.Helper()
 	store := &fakeStore{total: 1, affected: 1}
 	logger := &fakeLogger{}
-	svc := New(store, logger,
-		WithStarter(starter),
+	svc := New().
+		WithStore(store).
+		WithLogger(logger).
+		WithStarter(starter).
 		WithData(fstest.MapFS{
 			"data/default/proxy.rules.json": &fstest.MapFile{Data: []byte(template)},
 			"data/conf/bridge.json": &fstest.MapFile{Data: []byte(
 				`{"node":{"services":{"proxy":{"root":"proxies","stopTimeoutMs":5000}}}}`)},
-		}),
-	)
+		})
 	// 资源操作要求"有当前工作区"(v21 §10): 测试默认给一个
 	svc.currentWorkspace = func() string { return "w-test" }
 	svc.now = func() time.Time { return time.UnixMilli(1700000000000) }
@@ -127,7 +128,7 @@ func TestStartFailureMarksError(t *testing.T) {
 
 // 未配置执行链路时明确报错, 不静默成功。
 func TestStartWithoutStarterFails(t *testing.T) {
-	svc := New(&fakeStore{total: 1}, &fakeLogger{})
+	svc := New().WithStore(&fakeStore{total: 1}).WithLogger(&fakeLogger{})
 	if _, err := svc.Start(nil, []string{"p1"}); err == nil ||
 		!strings.Contains(err.Error(), "starter not configured") {
 		t.Fatalf("应报 starter not configured, got %v", err)

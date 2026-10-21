@@ -14,19 +14,18 @@ import (
 
 // WithBridge 注入桥接能力: 服务据此创建 starter, 并按消息 id 与 node 回执配表。
 // 语义: 发 proxy.start / proxy.stop; node 回 proxy.started / proxy.failed / proxy.stopped。
-func WithBridge(sender domainbridge.Sender, receiver domainbridge.Receiver) Option {
-	return func(s *Service) {
-		starter := &bridgeStarter{
-			sender:  sender,
-			timeout: maxDuration(s.startWait, time.Second),
-			pending: map[string]chan startOutcome{},
-		}
-		// 引擎的 handlers 表在构造时已初始化, 这里(早于 Start)注册也安全
-		receiver.Handle("proxy.started", starter.onStarted)
-		receiver.Handle("proxy.failed", starter.onFailed)
-		receiver.Handle("proxy.stopped", starter.onStopped)
-		s.starter = starter
+func (s *Service) WithBridge(sender domainbridge.Sender, receiver domainbridge.Receiver) *Service {
+	starter := &bridgeStarter{
+		sender:  sender,
+		timeout: maxDuration(s.startWait, time.Second),
+		pending: map[string]chan startOutcome{},
 	}
+	// 引擎的 handlers 表在构造时已初始化, 这里(早于 Start)注册也安全
+	receiver.Handle("proxy.started", starter.onStarted)
+	receiver.Handle("proxy.failed", starter.onFailed)
+	receiver.Handle("proxy.stopped", starter.onStopped)
+	s.starter = starter
+	return s
 }
 
 type startOutcome struct {

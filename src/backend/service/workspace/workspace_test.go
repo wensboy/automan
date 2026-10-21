@@ -56,7 +56,7 @@ func (f *fakeStore) Do(_ stdctx.Context, task domainstore.Task) (any, error) {
 
 func newService(user string) (*Service, *fakeStore) {
 	store := &fakeStore{}
-	svc := New(store, nil).WithCurrentUser(func() string { return user })
+	svc := New().WithStore(store).WithCurrentUser(func() string { return user })
 	return svc, store
 }
 

@@ -10,7 +10,7 @@ import (
 
 func realService(t *testing.T) *Service {
 	t.Helper()
-	return New(os.DirFS("../../.."), nil) // ../../.. = src/
+	return New().WithData(os.DirFS("../../..")) // ../../.. = src/
 }
 
 // 清单: 只取 runtime, 顺序与 groups 一致, id = group.cmd。

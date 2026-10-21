@@ -72,16 +72,14 @@ type StartResult struct {
 	Failed []StartFailure `json:"failed"`
 }
 
-// Option 配置启动链路相关依赖。
-type Option func(*Service)
-
 // WithStarter 注入执行链路适配器(未注入时 Start 会明确报错, 不会静默成功)。
-func WithStarter(starter Starter) Option { return func(s *Service) { s.starter = starter } }
+func (s *Service) WithStarter(starter Starter) *Service { s.starter = starter; return s }
 
 // WithCurrentUser 注入"当前用户 id"的读取函数(会话服务提供)。
 // 未注入或返回空串时不做用户收束 —— 便于测试与"尚未登录"的早期阶段。
-func WithCurrentUser(fn func() string) Option {
-	return func(s *Service) { s.currentUser = fn }
+func (s *Service) WithCurrentUser(fn func() string) *Service {
+	s.currentUser = fn
+	return s
 }
 
 // userID 返回当前用户 id(去空白)。
@@ -94,8 +92,9 @@ func (s *Service) userID() string {
 
 // WithCurrentWorkspace 注入"当前工作区 id"的读取函数(工作区服务提供)。
 // 未注入或返回空串时不做工作区收束(与用户收束同样的取舍)。
-func WithCurrentWorkspace(fn func() string) Option {
-	return func(s *Service) { s.currentWorkspace = fn }
+func (s *Service) WithCurrentWorkspace(fn func() string) *Service {
+	s.currentWorkspace = fn
+	return s
 }
 
 // workspaceID 返回当前工作区 id(去空白)。
@@ -145,11 +144,19 @@ func (s *Service) scopeWhere(where string, args []any) (string, []any) {
 }
 
 // WithRoot 注入应用数据根(绝对路径): bridge.json 里的相对 basedir 会解析到它下面。
-func WithRoot(root string) Option { return func(s *Service) { s.root = root } }
+func (s *Service) WithRoot(root string) *Service {
+	s.root = root
+	s.loadData() // 数据源已注入时按新根重解析 basedir
+	return s
+}
 
 // WithData 注入只读数据源(data/): 服务**自行**读取模板与 basedir,
 // 组合根只负责把数据源递进来, 不再替服务做解析(v19 §12)。
-func WithData(fsys fs.FS) Option { return func(s *Service) { s.data = fsys } }
+func (s *Service) WithData(fsys fs.FS) *Service {
+	s.data = fsys
+	s.loadData()
+	return s
+}
 
 // loadData 读取本服务需要的两个只读数据文件: rules 模板 与 代理 basedir。
 // 失败不阻断启动: 模板缺失时前端退化为 {}; basedir 缺失时用缺省 "proxies"。

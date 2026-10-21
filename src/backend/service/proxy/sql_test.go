@@ -91,7 +91,7 @@ func newSQLStore(t *testing.T) *sqlStore {
 func TestServiceAgainstRealSQLite(t *testing.T) {
 	store := newSQLStore(t)
 	logger := &fakeLogger{}
-	svc := New(store, logger)
+	svc := New().WithStore(store).WithLogger(logger)
 	svc.currentWorkspace = func() string { return "w-test" }
 
 	created, err := svc.Create(nil, Input{Name: "local-dev", Target: "127.0.0.1:8899", Rules: `{"port":8899}`})

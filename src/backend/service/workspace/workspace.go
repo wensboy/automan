@@ -61,15 +61,16 @@ type Service struct {
 }
 
 // New 创建工作区服务.
-func New(store domainstore.Store, logger domainlog.Logger) *Service {
-	return &Service{
-		store:   store,
-		logger:  logger,
-		now:     time.Now,
-		newID:   newID,
-		current: map[string]string{},
-	}
+// New 创建工作区服务: 只做基础初始化; 外部依赖经 WithXxx 链式注入。
+func New() *Service {
+	return &Service{now: time.Now, newID: newID, current: map[string]string{}}
 }
+
+// WithStore 注入数据库 store.
+func (s *Service) WithStore(store domainstore.Store) *Service { s.store = store; return s }
+
+// WithLogger 注入日志出口.
+func (s *Service) WithLogger(logger domainlog.Logger) *Service { s.logger = logger; return s }
 
 // WithSettings 注入设置引擎: 工作区数量上限来自 general.workspace.limit(可在 settings UI 调整)。
 func (s *Service) WithSettings(settings domainsettings.Store) *Service {

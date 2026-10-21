@@ -176,7 +176,7 @@ func newHarness(t *testing.T) *harness {
 	}}
 	bus := &fakeBus{}
 	h := &harness{store: store, settings: settings, bus: bus, clock: time.UnixMilli(1_700_000_000_000)}
-	svc := New(store, settings, bus, nil)
+	svc := New().WithStore(store).WithSettings(settings).WithEventBus(bus)
 	svc.now = func() time.Time { return h.clock }
 	svc.newID = func() string { return "id-" + time.Now().Format("150405.000000") }
 	h.svc = svc
