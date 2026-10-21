@@ -10,14 +10,20 @@
 package settings
 
 import (
+	stdctx "context"
+	"encoding/json"
 	"fmt"
+	"os"
 	"reflect"
+	"strings"
 
 	domaincontext "github.com/wensboy/automan/backend/domain/context"
 	"github.com/wensboy/automan/backend/domain/key"
 	domainsettings "github.com/wensboy/automan/backend/domain/settings"
+	domainstore "github.com/wensboy/automan/backend/domain/store"
 	apperr "github.com/wensboy/automan/backend/internal/err"
 	"github.com/wensboy/automan/backend/internal/kits/schemakit"
+	"github.com/wensboy/automan/backend/internal/kits/storekit"
 )
 
 // ViewDefault 表示取值来自默认值层(data/defaults), 位于引擎三视图之外.
@@ -35,6 +41,7 @@ type Entry struct {
 // Service 编排设置读写; 引擎与 schema 键表在构造时注入.
 type Service struct {
 	store    domainsettings.Store
+	files    domainstore.Store // 用户目录(动态选项的文件来源, 例 theme.json)
 	fields   map[string]schemakit.Field
 	defaults map[string]any
 }
@@ -48,6 +55,12 @@ func New() *Service {
 
 // WithStore 注入设置引擎.
 func (s *Service) WithStore(store domainsettings.Store) *Service { s.store = store; return s }
+
+// WithFiles 注入用户目录文件存储(供动态选项读取外部文件, 例 theme.json).
+func (s *Service) WithFiles(files domainstore.Store) *Service {
+	s.files = files
+	return s
+}
 
 // WithFields 注入 schema 字段表.
 func (s *Service) WithFields(fields map[string]schemakit.Field) *Service {
@@ -125,6 +138,143 @@ func (s *Service) Save(_ domaincontext.Context) error {
 
 // Fields 暴露 schema 键表(供测试与诊断).
 func (s *Service) Fields() map[string]schemakit.Field { return s.fields }
+
+// readThemeFile 读取主题文件: 相对路径经用户目录(store)读取; 绝对路径/~ 走文件系统.
+func readThemeFile(files domainstore.Store, target string) ([]byte, error) {
+	trimmed := strings.TrimSpace(strings.TrimPrefix(target, "file://"))
+	if strings.HasPrefix(trimmed, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			trimmed = home + trimmed[1:]
+		}
+	}
+	if !strings.HasPrefix(trimmed, "/") {
+		if payload, err := storekit.Read(stdctx.Background(), files, trimmed); err == nil {
+			return payload, nil
+		}
+	}
+	return os.ReadFile(trimmed)
+}
+
+// Theme 是当前主题的完整色板(light/dark 各一套 CSS 变量)。
+type Theme struct {
+	ID    string            `json:"id"`
+	Light map[string]string `json:"light"`
+	Dark  map[string]string `json:"dark"`
+}
+
+// themeFileEntry 是 theme.json 里的一项(只取需要的字段)。
+type themeFileEntry struct {
+	ID    string            `json:"id"`
+	Light map[string]string `json:"light"`
+	Dark  map[string]string `json:"dark"`
+}
+
+// Theme 返回当前生效主题的色板: 由 theme.register 指向的文件 + theme.current 选择;
+// 当前值不在文件里时选第一个(与 Options 的规则一致)。
+func (s *Service) Theme(_ domaincontext.Context) (Theme, error) {
+	entries, err := s.readThemes()
+	if err != nil {
+		return Theme{}, err
+	}
+	if len(entries) == 0 {
+		return Theme{}, fmt.Errorf("%w: settings: no theme defined in theme file", apperr.New(apperr.CodeServiceFail))
+	}
+	selected := entries[0]
+	if current, ok := s.read("theme.current"); ok {
+		if id, _ := current.Value.(string); id != "" {
+			for _, entry := range entries {
+				if entry.ID == id {
+					selected = entry
+					break
+				}
+			}
+		}
+	}
+	return Theme{ID: selected.ID, Light: selected.Light, Dark: selected.Dark}, nil
+}
+
+// readThemes 读取并解析 theme.register 指向的主题文件(读不到则回落到用户目录 theme.json).
+func (s *Service) readThemes() ([]themeFileEntry, error) {
+	if s.files == nil {
+		return nil, fmt.Errorf("%w: settings: file store unavailable", apperr.New(apperr.CodeServiceFail))
+	}
+	target := targetFallback
+	if register, ok := s.read("theme.register"); ok {
+		if value, _ := register.Value.(string); strings.TrimSpace(value) != "" {
+			target = strings.TrimSpace(value)
+		}
+	}
+	payload, err := readThemeFile(s.files, target)
+	if err != nil && target != targetFallback {
+		payload, err = readThemeFile(s.files, targetFallback)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("settings: read theme file %q: %w", target, err)
+	}
+	var entries []themeFileEntry
+	if err := json.Unmarshal(payload, &entries); err != nil {
+		return nil, fmt.Errorf("settings: parse theme file %q: %w", target, err)
+	}
+	return entries, nil
+}
+
+// optionsTheme 是"主题列表"的选项键(前端 options 用字符串表示动态来源时传这个 key).
+const (
+	optionsTheme   = "theme.current.options"
+	targetFallback = "theme.json"
+)
+
+// Options 返回某个字段的**动态候选项**(前端 options 为字符串时按该键调用).
+//
+// 规则: 当前值不在候选列表里时, 自动选第一个(与"总是默认选择第一个主题"一致)。
+func (s *Service) Options(ctx domaincontext.Context, name string) ([]string, error) {
+	switch strings.TrimSpace(name) {
+	case optionsTheme:
+		options, err := s.themeOptions(ctx)
+		if err != nil {
+			return nil, err
+		}
+		s.ensureFirst(ctx, "theme.current", options)
+		return options, nil
+	default:
+		return []string{}, nil
+	}
+}
+
+// themeOptions 读取 theme.register 指向的 theme.json -> 主题 id 列表.
+func (s *Service) themeOptions(_ domaincontext.Context) ([]string, error) {
+	entries, err := s.readThemes()
+	if err != nil {
+		return nil, err
+	}
+	options := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if id := strings.TrimSpace(entry.ID); id != "" {
+			options = append(options, id)
+		}
+	}
+	return options, nil
+}
+
+// ensureFirst 当前值不在候选里时改为第一个(只改运行态, 由前端决定是否落盘).
+func (s *Service) ensureFirst(_ domaincontext.Context, key string, options []string) {
+	if len(options) == 0 {
+		return
+	}
+	current, ok := s.read(key)
+	if ok {
+		if value, _ := current.Value.(string); value == options[0] {
+			return
+		}
+		for _, option := range options {
+			if value, _ := current.Value.(string); value == option {
+				return
+			}
+		}
+	}
+	// 只改运行态: 是否落盘由前端在保存时决定(避免读取选项产生磁盘副作用)
+	_ = s.store.Set(key, options[0])
+}
 
 // read 取生效值: 引擎优先, 其次默认值; 都缺失时返回 false.
 func (s *Service) read(name string) (Entry, bool) {

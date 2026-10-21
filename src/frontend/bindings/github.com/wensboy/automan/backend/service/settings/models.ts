@@ -8,3 +8,12 @@ export interface Entry {
     "value": any;
     "view": string;
 }
+
+/**
+ * Theme 是当前主题的完整色板(light/dark 各一套 CSS 变量)。
+ */
+export interface Theme {
+    "id": string;
+    "light": { [_ in string]?: string } | null;
+    "dark": { [_ in string]?: string } | null;
+}

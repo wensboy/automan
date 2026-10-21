@@ -1,5 +1,7 @@
 import * as React from "react"
 
+import { applyTheme, bindThemeEvents } from "@/lib/theme"
+
 type Theme = "system" | "light" | "dark"
 
 type ThemeContextValue = {
@@ -24,14 +26,23 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
   )
 
   React.useEffect(() => {
-    document.documentElement.classList.toggle("dark", isDark(theme))
+    const dark = isDark(theme)
+    document.documentElement.classList.toggle("dark", dark)
+    // theme.json 的 token 注入(覆盖 index.css 默认值); 之后每次明暗或主题变化都重新应用
+    void applyTheme(dark)
     if (theme !== "system") return
 
     const media = window.matchMedia("(prefers-color-scheme: dark)")
-    const onChange = () => document.documentElement.classList.toggle("dark", media.matches)
+    const onChange = () => {
+      document.documentElement.classList.toggle("dark", media.matches)
+      void applyTheme(media.matches)
+    }
     media.addEventListener("change", onChange)
     return () => media.removeEventListener("change", onChange)
   }, [theme])
+
+  // 设置里切换主题/改主题文件后重新拉取并应用
+  React.useEffect(() => bindThemeEvents(() => isDark(theme)), [theme])
 
   const value = React.useMemo<ThemeContextValue>(
     () => ({

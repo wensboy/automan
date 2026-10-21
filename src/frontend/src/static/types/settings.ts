@@ -52,7 +52,8 @@ export type SettingsNumberField = SettingsFieldBase & {
 export type SettingsEnumField<T extends SettingsScalarType = SettingsScalarType> =
   SettingsFieldBase & {
     type: `enum<${T}>`
-    options: SettingsScalar<T>[]
+    /** 数组 = 静态候选项; 字符串 = **动态来源键**(调用后端 settings 服务的 Options(key)). */
+    options: SettingsScalar<T>[] | string
   }
 
 export type SettingsArrayField<T extends SettingsScalarType = SettingsScalarType> =

@@ -33,8 +33,11 @@ export function settingsGroups(): SettingsGroup[] {
 /** 判断一个节点是否是配置项(有可解析的 type), 用于与"子分组"区分。 */
 function isFieldNode(node: unknown): boolean {
   if (!node || typeof node !== "object" || Array.isArray(node)) return false
-  const type = (node as { type?: unknown }).type
-  return typeof type === "string" && parseFieldType(type) !== undefined
+  const candidate = node as { key?: unknown; label?: unknown; type?: unknown }
+  // 必须是**完整字段**: 缺 key/label 的节点(例如旧格式里被包在 value 下的 {type,options})
+  // 不能当字段渲染, 否则 label 为空会在渲染期直接崩(field.label.split)。
+  if (typeof candidate.key !== "string" || typeof candidate.label !== "string") return false
+  return typeof candidate.type === "string" && parseFieldType(candidate.type) !== undefined
 }
 
 /**
@@ -99,8 +102,12 @@ export function parseFieldValue(field: SettingsField, raw: unknown): SettingsVal
     }
     case "enum": {
       if (!isScalarOf(type.of, raw)) return undefined
-      const options = (field as { options?: unknown[] }).options ?? []
-      return options.includes(raw as never) ? (raw as SettingsValue) : undefined
+      const options = (field as { options?: unknown }).options
+      // options 为字符串 = **动态来源键**(候选由后端 Options(key) 下发):
+      // 前端不做白名单校验(拿不到列表, 用字符串 includes 会误判), 交给后端 Set 校验。
+      if (typeof options === "string") return raw as SettingsValue
+      const list = Array.isArray(options) ? options : []
+      return list.includes(raw as never) ? (raw as SettingsValue) : undefined
     }
     case "array": {
       if (!Array.isArray(raw)) return undefined

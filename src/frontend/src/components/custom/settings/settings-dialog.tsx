@@ -6,6 +6,8 @@ import { cn } from "cn"
 import StepInput from "@/components/custom/share/step-input"
 import { toast } from "sonner"
 
+import { Options as LoadOptions } from "../../../../bindings/github.com/wensboy/automan/backend/api/web/settingsservice"
+
 import ListInput from "@/components/custom/share/list-input"
 import { useStatic } from "@/components/custom/share/provider/static-provider"
 import {
@@ -82,16 +84,26 @@ function SettingsRow({
   field,
   separator,
   value,
+  options,
   onChange,
 }: {
   field: SettingsFieldEntry
   /** 是否显示与下一项的分隔线: 只有 depth=1 的项才分隔(见父层注释)。 */
   separator: boolean
   value: SettingsValue | undefined
+  /** 动态候选项(options 为字符串时由父级向后端取回) */
+  options?: string[]
   onChange: (next: SettingsValue) => void
 }) {
   const type = parseFieldType(field.type)
   const missing = value === undefined
+  // enum 的候选项: 静态数组直接用; 字符串则用父级向后端取回的列表
+  const enumOptions: SettingsValue[] = (() => {
+    if (!field.type.startsWith("enum")) return []
+    const raw = (field as { options: SettingsValue[] | string }).options
+    if (typeof raw === "string") return (options ?? []) as SettingsValue[]
+    return raw
+  })()
 
   return (
     <div className={cn("flex flex-col gap-1.5 py-2.5", separator && "border-b")}>
@@ -130,7 +142,7 @@ function SettingsRow({
             <SelectValue />
           </SelectTrigger>
           <SelectContent position="popper">
-            {(field.type.startsWith("enum") ? (field as { options: SettingsValue[] }).options : []).map(
+            {enumOptions.map(
               (option) => (
                 <SelectItem key={String(option)} value={String(option)}>
                   {String(option)}
@@ -170,6 +182,22 @@ function SettingsRow({
 }
 
 /** number 是否按滑杆呈现: 仅当 range 恰好给出 [min, max]。 */
+/**
+ * 分隔线规则(全部分区统一): **只在分组边界画一条**。
+ *
+ * 判定: 当前项与下一项的 `trail`(嵌套路径)不同 -> 下一项属于新分组 -> 当前项底部画线。
+ * 因此:
+ *   · theme 下的 current/register 同属顶层(trail 相同) -> 彼此之间无线;
+ *   · general 下 language 与 session.* -> language 底部有线, session 内部无线。
+ */
+function isSectionBoundary(fields: SettingsFieldEntry[], index: number): boolean {
+  const current = fields[index]
+  const next = fields[index + 1]
+  if (!current || !next) return false
+  if (current.trail.length !== next.trail.length) return true
+  return current.trail.some((segment, position) => segment !== next.trail[position])
+}
+
 function isRanged(field: SettingsField): boolean {
   const { min, max } = rangeBounds(field)
   return typeof min === "number" && typeof max === "number"
@@ -240,6 +268,28 @@ export default function SettingsDialog({
     [icon],
   )
 
+  // 动态候选项: field.key -> 选项列表(options 为字符串时按该键向后端取)
+  const [dynamicOptions, setDynamicOptions] = React.useState<Record<string, string[]>>({})
+  const refreshDynamicOptions = React.useCallback(async () => {
+    const fields = settingsGroups().flatMap((group) => group.fields)
+    const dynamicFields = fields.filter(
+      (field) =>
+        field.type.startsWith("enum") &&
+        typeof (field as { options: unknown }).options === "string",
+    )
+    const entries = await Promise.all(
+      dynamicFields.map(async (field) => {
+        const key = (field as { options: string }).options
+        try {
+          return [field.key, (await LoadOptions(key)) ?? []] as const
+        } catch {
+          return [field.key, []] as const
+        }
+      }),
+    )
+    setDynamicOptions(Object.fromEntries(entries))
+  }, [])
+
   const [active, setActive] = React.useState("")
   const [values, setValues] = React.useState<SettingsValues>({})
   const [loaded, setLoaded] = React.useState<SettingsValues>({})
@@ -250,7 +300,9 @@ export default function SettingsDialog({
     if (!open) return
     let cancelled = false
     setPending(true)
-    void loadSettings()
+    // 顺序: 先解析动态选项(后端可能把失效的当前值改为第一个), 再读取生效值
+    void refreshDynamicOptions()
+      .then(() => loadSettings())
       .then((next) => {
         if (cancelled) return
         setValues(next)
@@ -273,6 +325,7 @@ export default function SettingsDialog({
     if (!open) return
     return subscribeSettings((kind) => {
       if (kind === "changed") return
+      void refreshDynamicOptions()
       void loadSettings()
         .then((next) => {
           setValues(next)
@@ -280,15 +333,10 @@ export default function SettingsDialog({
         })
         .catch(() => undefined)
     })
-  }, [open])
+  }, [open, refreshDynamicOptions])
 
   const activeGroup = groups.find((group) => group.id === active) ?? groups[0]
-  // 分隔线只给 depth=1 的项(例 language 与 session 之间); depth>1 的项彼此不分隔, 层级由 label 里的 `>` 表达
   const groupFields = activeGroup?.fields ?? []
-  const lastTopLevelIndex = groupFields.reduce(
-    (last, field, index) => (field.trail.length === 0 ? index : last),
-    -1,
-  )
 
   const dirtyKeys = React.useMemo(
     () =>
@@ -396,8 +444,9 @@ export default function SettingsDialog({
                 <SettingsRow
                   key={field.key}
                   field={field}
-                  separator={field.trail.length === 0 && index !== lastTopLevelIndex}
+                  separator={isSectionBoundary(groupFields, index)}
                   value={values[field.key]}
+                  options={dynamicOptions[field.key]}
                   onChange={(next) => update(field, next)}
                 />
               ))}

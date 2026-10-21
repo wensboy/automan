@@ -29,6 +29,8 @@ const (
 	templateSrc      = "data/schema/settings.user.json"
 	schemaSrc        = "data/schema/settings.user.schema.json"
 	defaultsSrc      = "data/default/settings.user.json"
+	themeSrc         = "data/default/theme.json"
+	themeFile        = "theme.json"
 )
 
 // loadDefaults 读取默认值层并摊平成"点号键 -> 默认值".
@@ -81,6 +83,10 @@ func syncUserFiles(ctx domaincontext.Context, data fs.FS) error {
 		return fmt.Errorf("bootstrap: ensure user dir: %w", err)
 	}
 	if err := copyIfMissing(base, files, data, templateSrc, userSettingsFile); err != nil {
+		return err
+	}
+	// 主题文件: 用户目录缺失时同步一份(之后不再覆盖, 用户可自行编辑/指向别处)
+	if err := copyIfMissing(base, files, data, themeSrc, themeFile); err != nil {
 		return err
 	}
 	return copyAlways(base, files, data, schemaSrc, userSchemaFile)

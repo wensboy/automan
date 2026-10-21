@@ -4,8 +4,8 @@
         "compact": false
     },
     "theme": {
-        "accent": "neutral",
-        "radius": 0.625
+        "current": "default",
+        "register": "~/.config/automan/theme.json"
     },
     "proxy": {
         "autoStart": false,

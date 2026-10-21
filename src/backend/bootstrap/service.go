@@ -42,6 +42,7 @@ type serviceEngines struct {
 	logger   domainlog.Logger
 	ebus     event.Bus
 
+	files    domainstore.Store // store 引擎: 用户目录文件读写(动态选项/主题文件)
 	rooter   domainstore.Rooter
 	bridge   *bridgeengine.Engine
 	bridgeOK bool
@@ -75,7 +76,10 @@ func resolveServiceEngines(rt *rtengine.Runtime) (serviceEngines, error) {
 	}
 	engines.ebus = ebus
 
-	// 以下两个是可选依赖: 缺了只是"该能力不可用", 不影响其它服务
+	// 以下为可选依赖: 缺了只是"该能力不可用", 不影响其它服务
+	if store, ok := enginekit.Of[domainstore.Store](rt, "store"); ok {
+		engines.files = store
+	}
 	if rooter, ok := enginekit.Of[domainstore.Rooter](rt, "store"); ok {
 		engines.rooter = rooter
 	}
@@ -95,7 +99,11 @@ func registerServices(deps serviceDeps) (func(), error) {
 	}
 
 	if err := srvkit.Register(deps.runtime, servicesettings.Key,
-		servicesettings.New().WithStore(engines.settings).WithFields(deps.fields).WithDefaults(deps.defaults)); err != nil {
+		servicesettings.New().
+			WithStore(engines.settings).
+			WithFiles(engines.files).
+			WithFields(deps.fields).
+			WithDefaults(deps.defaults)); err != nil {
 		return nil, err
 	}
 

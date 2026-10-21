@@ -71,6 +71,7 @@ func TestSyncUserFilesCreatesThenOverwritesSchema(t *testing.T) {
 	data := fstest.MapFS{
 		templateSrc: &fstest.MapFile{Data: []byte(`{"appearence":{"mode":"auto"}}`)},
 		schemaSrc:   &fstest.MapFile{Data: []byte(`{"title":"schema-v2"}`)},
+		themeSrc:    &fstest.MapFile{Data: []byte(`[{"id":"default"}]`)},
 	}
 	files := &fakeStore{files: map[string][]byte{
 		userSchemaFile: []byte("schema-v1"),
@@ -86,6 +87,9 @@ func TestSyncUserFilesCreatesThenOverwritesSchema(t *testing.T) {
 	if got := string(files.files[userSchemaFile]); got != `{"title":"schema-v2"}` {
 		t.Fatalf("schema 应被每次启动覆盖, got %q", got)
 	}
+	if got := string(files.files[themeFile]); got != `[{"id":"default"}]` {
+		t.Fatalf("主题文件应被同步到用户目录, got %q", got)
+	}
 	if !files.mkdirCalled {
 		t.Fatalf("应先确保用户目录存在")
 	}
@@ -96,10 +100,12 @@ func TestSyncUserFilesKeepsUserFile(t *testing.T) {
 	data := fstest.MapFS{
 		templateSrc: &fstest.MapFile{Data: []byte(`{"appearence":{"mode":"auto"}}`)},
 		schemaSrc:   &fstest.MapFile{Data: []byte(`{"title":"schema"}`)},
+		themeSrc:    &fstest.MapFile{Data: []byte(`[{"id":"default"}]`)},
 	}
 	files := &fakeStore{files: map[string][]byte{
 		userSettingsFile: []byte(`{"appearence":{"mode":"dark"}}`),
 		userSchemaFile:   []byte("old"),
+		themeFile:        []byte(`[{"id":"custom"}]`),
 	}}
 	if err := syncUserFiles(&fakeContext{files: files}, data); err != nil {
 		t.Fatalf("syncUserFiles: %v", err)
@@ -109,5 +115,8 @@ func TestSyncUserFilesKeepsUserFile(t *testing.T) {
 	}
 	if got := string(files.files[userSchemaFile]); got != `{"title":"schema"}` {
 		t.Fatalf("schema 应被覆盖, got %q", got)
+	}
+	if got := string(files.files[themeFile]); got != `[{"id":"custom"}]` {
+		t.Fatalf("已有主题文件不应被覆盖, got %q", got)
 	}
 }

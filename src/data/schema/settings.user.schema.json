@@ -32,24 +32,17 @@
         },
         "theme": {
             "type": "object",
-            "description": "主题细节.",
+            "description": "主题.",
             "properties": {
-                "accent": {
-                    "enum": [
-                        "neutral",
-                        "blue",
-                        "green",
-                        "orange"
-                    ],
-                    "default": "neutral",
-                    "description": "强调色 (与 index.css 的 token 对应)."
+                "current": {
+                    "type": "string",
+                    "default": "default",
+                    "description": "当前主题 id; 可选值来自 theme.register 指向的 theme.json(动态 options)."
                 },
-                "radius": {
-                    "type": "number",
-                    "minimum": 0,
-                    "maximum": 2,
-                    "default": 0.625,
-                    "description": "圆角系数 (rem)."
+                "register": {
+                    "type": "string",
+                    "default": "~/.config/automan/theme.json",
+                    "description": "主题文件路径; 启动时会把默认 theme.json 同步到用户目录."
                 }
             },
             "additionalProperties": false

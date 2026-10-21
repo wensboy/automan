@@ -36,6 +36,13 @@ export function List(): $CancellablePromise<{ [_ in string]?: settings$0.Entry }
 }
 
 /**
+ * Options 返回字段的动态候选项(前端 options 为字符串时按该键调用).
+ */
+export function Options(name: string): $CancellablePromise<string[] | null> {
+    return $Call.ByID(1178775184, name);
+}
+
+/**
  * Reset 抹掉单个配置项的覆盖, 回落默认层.
  */
 export function Reset(name: string): $CancellablePromise<void> {
@@ -54,4 +61,11 @@ export function Save(): $CancellablePromise<void> {
  */
 export function Set(name: string, value: any): $CancellablePromise<void> {
     return $Call.ByID(3664975462, name, value);
+}
+
+/**
+ * Theme 返回当前主题的色板(light/dark 两套 CSS 变量).
+ */
+export function Theme(): $CancellablePromise<settings$0.Theme> {
+    return $Call.ByID(356947527);
 }

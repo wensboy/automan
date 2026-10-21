@@ -1,10 +1,13 @@
 package settings
 
 import (
+	stdctx "context"
+	"errors"
 	"strings"
 	"testing"
 
 	domainsettings "github.com/wensboy/automan/backend/domain/settings"
+	domainstore "github.com/wensboy/automan/backend/domain/store"
 	"github.com/wensboy/automan/backend/internal/kits/schemakit"
 )
 
@@ -213,5 +216,86 @@ func TestApplyDoesNotPersist(t *testing.T) {
 	}
 	if store.saves != 0 || len(store.user) != 0 {
 		t.Fatalf("Apply 不应落盘, saves=%d user=%v", store.saves, store.user)
+	}
+}
+
+// fakeFiles 是 domainstore.Store 的最小替身: 只支持读取文件.
+type fakeFiles struct{ files map[string][]byte }
+
+func (f *fakeFiles) Submit(domainstore.Task) <-chan domainstore.Result { return nil }
+
+func (f *fakeFiles) Do(_ stdctx.Context, task domainstore.Task) (any, error) {
+	if task.Cmd != domainstore.CmdRead {
+		return nil, errors.New("unsupported")
+	}
+	args, ok := task.Args.(domainstore.ReadArgs)
+	if !ok {
+		return nil, errors.New("bad args")
+	}
+	data, exists := f.files[args.Path]
+	if !exists {
+		return nil, errors.New("not exist")
+	}
+	return data, nil
+}
+
+// 动态选项: theme.current.options 取自 theme.register 指向的文件; 当前值不在列表时默认选第一个.
+func TestOptionsThemeList(t *testing.T) {
+	store := newFakeStore(map[string]any{
+		"theme.register": "theme.json",
+		"theme.current":  "missing-theme",
+	})
+	files := &fakeFiles{files: map[string][]byte{
+		"theme.json": []byte(`[{"id":"default"},{"id":"dark-blue"}]`),
+	}}
+	svc := New().WithStore(store).WithFiles(files)
+
+	options, err := svc.Options(nil, "theme.current.options")
+	if err != nil {
+		t.Fatalf("Options: %v", err)
+	}
+	if len(options) != 2 || options[0] != "default" || options[1] != "dark-blue" {
+		t.Fatalf("选项应为文件中的主题 id, got %+v", options)
+	}
+	if got, _ := store.Get("theme.current"); got != "default" {
+		t.Fatalf("当前值不在列表时应默认第一个, got %v", got)
+	}
+
+	// 未知的选项键: 返回空列表(不报错)
+	if got, err := svc.Options(nil, "unknown.key"); err != nil || len(got) != 0 {
+		t.Fatalf("未知键应返回空, got %v err=%v", got, err)
+	}
+}
+
+// 主题色板: 按 theme.current 选择; 当前值失效时选第一个; 返回 light/dark 两套变量.
+func TestThemeSelectsCurrent(t *testing.T) {
+	store := newFakeStore(map[string]any{
+		"theme.register": "theme.json",
+		"theme.current":  "tokyo-night",
+	})
+	files := &fakeFiles{files: map[string][]byte{
+		"theme.json": []byte(`[
+			{"id":"default","light":{"--background":"#fff"},"dark":{"--background":"#000"}},
+			{"id":"tokyo-night","light":{"--background":"#e6e7ed"},"dark":{"--background":"#1a1b26"}}
+		]`),
+	}}
+	svc := New().WithStore(store).WithFiles(files)
+
+	theme, err := svc.Theme(nil)
+	if err != nil {
+		t.Fatalf("Theme: %v", err)
+	}
+	if theme.ID != "tokyo-night" || theme.Dark["--background"] != "#1a1b26" {
+		t.Fatalf("应按 theme.current 选择, got %+v", theme)
+	}
+
+	// 当前值失效 -> 第一个
+	store.runtime["theme.current"] = "missing"
+	fallback, err := svc.Theme(nil)
+	if err != nil {
+		t.Fatalf("Theme(fallback): %v", err)
+	}
+	if fallback.ID != "default" {
+		t.Fatalf("失效值应回落到第一个主题, got %q", fallback.ID)
 	}
 }

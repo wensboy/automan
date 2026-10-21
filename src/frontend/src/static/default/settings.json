@@ -12,7 +12,21 @@
             ]
         }
     },
-    "theme": {},
+    "theme": {
+        "current": {
+            "key": "theme.current",
+            "label": "Current",
+            "description": "Selected current theme.",
+            "type": "enum<string>",
+            "options": "theme.current.options"
+        },
+        "register": {
+            "key": "theme.register",
+            "label": "Register",
+            "description": "Location for theme source file.",
+            "type": "string"
+        }
+    },
     "proxy": {},
     "automation": {},
     "general": {

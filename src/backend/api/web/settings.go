@@ -63,6 +63,24 @@ func (s *SettingsService) Reset(name string) error {
 	return svc.Reset(s.ctx, name)
 }
 
+// Options 返回字段的动态候选项(前端 options 为字符串时按该键调用).
+func (s *SettingsService) Options(name string) ([]string, error) {
+	svc, ok := srvkit.Of(s.ctx, servicesettings.Key)
+	if !ok {
+		return nil, apperr.New(apperr.CodeNotFound)
+	}
+	return svc.Options(s.ctx, name)
+}
+
+// Theme 返回当前主题的色板(light/dark 两套 CSS 变量).
+func (s *SettingsService) Theme() (servicesettings.Theme, error) {
+	svc, ok := srvkit.Of(s.ctx, servicesettings.Key)
+	if !ok {
+		return servicesettings.Theme{}, apperr.New(apperr.CodeNotFound)
+	}
+	return svc.Theme(s.ctx)
+}
+
 // Save 落盘当前覆盖项.
 func (s *SettingsService) Save() error {
 	svc, ok := srvkit.Of(s.ctx, servicesettings.Key)
