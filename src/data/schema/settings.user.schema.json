@@ -156,6 +156,19 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "workspace": {
+                    "type": "object",
+                    "description": "工作区.",
+                    "properties": {
+                        "limit": {
+                            "type": "number",
+                            "minimum": 1,
+                            "maximum": 1024,
+                            "default": 32,
+                            "description": "单个用户可创建的工作区数量上限; 超出后创建会被拒绝."
+                        }
+                    }
                 }
             },
             "additionalProperties": false

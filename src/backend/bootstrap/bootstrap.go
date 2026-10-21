@@ -182,7 +182,7 @@ func registerServices(rt *rtengine.Runtime, data fs.FS, fields map[string]schema
 	}
 
 	// 工作区: user 1:n workspace 1:n proxy; "当前工作区"记在 workspace 服务内部
-	workspaceSrv := serviceworkspace.New(db, logger).WithCurrentUser(sessionSrv.CurrentUserID)
+	workspaceSrv := serviceworkspace.New(db, logger).WithSettings(settingsEngine).WithCurrentUser(sessionSrv.CurrentUserID)
 	if err := srvkit.Register(rt, serviceworkspace.Key, workspaceSrv); err != nil {
 		return nil, err
 	}

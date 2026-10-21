@@ -6,16 +6,19 @@ import (
 	"sync"
 	"testing"
 
+	domainsettings "github.com/wensboy/automan/backend/domain/settings"
 	domainstore "github.com/wensboy/automan/backend/domain/store"
 )
 
 // fakeStore 只实现本服务用到的 Exec/Query(与 proxy 测试同思路: 记录 SQL, 按需返回计数).
 type fakeStore struct {
-	mu       sync.Mutex
-	execs    []string
-	count    int
-	rows     []Workspace
-	affected int64
+	mu    sync.Mutex
+	execs []string
+	// count: 通用计数(数量上限用); nameCount: 重名检查用
+	count     int
+	nameCount int
+	rows      []Workspace
+	affected  int64
 }
 
 func (f *fakeStore) Submit(domainstore.Task) <-chan domainstore.Result { panic("unused") }
@@ -34,8 +37,12 @@ func (f *fakeStore) Do(_ stdctx.Context, task domainstore.Task) (any, error) {
 	case domainstore.CmdQuery:
 		args := task.Args.(domainstore.QueryArgs)
 		if strings.Contains(args.SQL, "COUNT(*)") {
+			value := f.count
+			if strings.Contains(args.SQL, "name = ?") {
+				value = f.nameCount
+			}
 			if into, ok := args.Into.(*[]int); ok {
-				*into = []int{f.count}
+				*into = []int{value}
 			}
 			return domainstore.QueryResult{Count: 1}, nil
 		}
@@ -67,7 +74,7 @@ func TestCreateWorkspace(t *testing.T) {
 		t.Fatalf("应写入 workspaces, got %+v", store.execs)
 	}
 
-	store.count = 1
+	store.nameCount = 1
 	if _, err := svc.Create(nil, "Demo"); err == nil || !strings.Contains(err.Error(), "duplicate") {
 		t.Fatalf("重名应被拒, got %v", err)
 	}
@@ -120,5 +127,39 @@ func TestRequiresUser(t *testing.T) {
 	}
 	if len(store.execs) != 0 {
 		t.Fatalf("未登录不应写库, got %+v", store.execs)
+	}
+}
+
+// fakeSettings 只实现 Get(本服务只读取上限).
+type fakeSettings struct{ values map[string]any }
+
+func (f fakeSettings) Get(name string) (any, bool) {
+	value, ok := f.values[name]
+	return value, ok
+}
+func (f fakeSettings) Set(string, any) error           { return nil }
+func (f fakeSettings) Save() error                     { return nil }
+func (f fakeSettings) Reload() error                   { return nil }
+func (f fakeSettings) Reset(string) error              { return nil }
+func (f fakeSettings) View(string) domainsettings.View { return domainsettings.ViewNone }
+
+// 数量上限来自 general.workspace.limit: 达到上限后创建被拒。
+func TestCreateRespectsLimit(t *testing.T) {
+	svc, store := newService("u-1")
+	svc.settings = fakeSettings{values: map[string]any{keyLimit: 2}}
+	store.count = 0
+	store.nameCount = 0
+
+	if _, err := svc.Create(nil, "A"); err != nil {
+		t.Fatalf("Create(A): %v", err)
+	}
+	store.count = 1
+	if _, err := svc.Create(nil, "B"); err != nil {
+		t.Fatalf("Create(B): %v", err)
+	}
+
+	store.count = 2 // 已达上限
+	if _, err := svc.Create(nil, "C"); err == nil || !strings.Contains(err.Error(), "limit reached") {
+		t.Fatalf("超上限应被拒, got %v", err)
 	}
 }

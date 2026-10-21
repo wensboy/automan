@@ -46,6 +46,14 @@
                 "description": "Extend the session on every check; off means a fixed lifetime.",
                 "type": "bool"
             }
+        },
+        "workspace": {
+            "limit": {
+                "key": "general.workspace.limit",
+                "label": "Workspace.Limit",
+                "description": "Maximum number of workspaces.",
+                "type": "number"
+            }
         }
     },
     "advanced": {}

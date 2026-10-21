@@ -17,6 +17,7 @@ import (
 	domaincontext "github.com/wensboy/automan/backend/domain/context"
 	"github.com/wensboy/automan/backend/domain/key"
 	domainlog "github.com/wensboy/automan/backend/domain/log"
+	domainsettings "github.com/wensboy/automan/backend/domain/settings"
 	domainstore "github.com/wensboy/automan/backend/domain/store"
 	"github.com/wensboy/automan/backend/internal/cast"
 	apperr "github.com/wensboy/automan/backend/internal/err"
@@ -30,6 +31,8 @@ const (
 	maxNameLen = 64
 	// defaultName 是用户首次使用(或删空后)自动创建的工作区名。
 	defaultName = "Default"
+	// defaultLimit 是未配置 general.workspace.limit 时的兜底上限。
+	defaultLimit = 32
 )
 
 // Workspace 是一个工作区(对前端).
@@ -44,10 +47,11 @@ type Workspace struct {
 
 // Service 编排工作区数据与"当前工作区"。
 type Service struct {
-	store  domainstore.Store
-	logger domainlog.Logger
-	now    func() time.Time
-	newID  func() string
+	store    domainstore.Store
+	settings domainsettings.Store
+	logger   domainlog.Logger
+	now      func() time.Time
+	newID    func() string
 
 	// currentUser 返回当前登录用户 id(会话服务提供); 为空时无法区分归属。
 	currentUser func() string
@@ -65,6 +69,38 @@ func New(store domainstore.Store, logger domainlog.Logger) *Service {
 		newID:   newID,
 		current: map[string]string{},
 	}
+}
+
+// WithSettings 注入设置引擎: 工作区数量上限来自 general.workspace.limit(可在 settings UI 调整)。
+func (s *Service) WithSettings(settings domainsettings.Store) *Service {
+	s.settings = settings
+	return s
+}
+
+// keyLimit 是工作区数量上限的配置键(默认层/schema/前端元数据三处同键)。
+const keyLimit = "general.workspace.limit"
+
+// limit 返回当前生效的数量上限(未配置/非法时用 32)。
+func (s *Service) limit() int {
+	if s.settings != nil {
+		if value, ok := s.settings.Get(keyLimit); ok {
+			switch typed := value.(type) {
+			case int:
+				if typed > 0 {
+					return typed
+				}
+			case int64:
+				if typed > 0 {
+					return int(typed)
+				}
+			case float64:
+				if typed >= 1 {
+					return int(typed)
+				}
+			}
+		}
+	}
+	return defaultLimit
 }
 
 // WithCurrentUser 注入当前用户 id 的读取函数(未注入时所有操作返回明确错误).
@@ -216,6 +252,16 @@ func (s *Service) create(userID, name string) (Workspace, error) {
 	}
 	if total > 0 {
 		return Workspace{}, invalid(`duplicate workspace name %q`, normalized)
+	}
+
+	// 数量上限: 只统计未删除的工作区
+	existing, err := s.count(`SELECT COUNT(*) FROM workspaces WHERE user_id = ? AND deleted_at = 0`, userID)
+	if err != nil {
+		return Workspace{}, err
+	}
+	if limit := s.limit(); existing >= limit {
+		s.fail("create", userID, fmt.Errorf("limit %d reached", limit))
+		return Workspace{}, invalid("workspace limit reached (max %d)", limit)
 	}
 
 	now := s.now().UnixMilli()

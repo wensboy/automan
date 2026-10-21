@@ -28,6 +28,9 @@
             "expirationS": 7200,
             "resumeOnStart": true,
             "slidingExpire": true
+        },
+        "workspace": {
+            "limit": 32
         }
     },
     "advanced": {
