@@ -3,7 +3,6 @@ package bootstrap
 
 import (
 	"errors"
-	"fmt"
 	"io/fs"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -22,13 +21,12 @@ import (
 	settingsengine "github.com/wensboy/automan/backend/engine/settings"
 	storeengine "github.com/wensboy/automan/backend/engine/store"
 	winengine "github.com/wensboy/automan/backend/engine/window"
-	"github.com/wensboy/automan/backend/internal/kits/configkit"
 	"github.com/wensboy/automan/backend/internal/kits/enginekit"
 	"github.com/wensboy/automan/backend/internal/registry"
 )
 
 // Run 组装并执行完整启动链路.
-func Run(mode context.Mode, assets, data fs.FS) error {
+func Run(assets, data fs.FS) error {
 	// 设置的键表与默认值在装配引擎前就要就绪: 键表用于限定"哪些键可落盘", 默认值注入服务层
 	fields, err := loadSchemaFields(data)
 	if err != nil {
@@ -39,7 +37,7 @@ func Run(mode context.Mode, assets, data fs.FS) error {
 		return err
 	}
 
-	rt := rtengine.New(rtengine.WithMode(mode), rtengine.WithRegistry(registry.New()))
+	rt := rtengine.New(rtengine.WithMode(context.ModeDesktop), rtengine.WithRegistry(registry.New()))
 	defer rt.Cancel()
 
 	win := winengine.New(
@@ -111,11 +109,5 @@ func Run(mode context.Mode, assets, data fs.FS) error {
 	}
 	defer cleanup()
 
-	if mode == context.ModeCLI {
-		name, _ := configkit.Get(provider, domainconfig.ApplicationNameKey)
-		version, _ := configkit.Get(provider, domainconfig.ApplicationVersionKey)
-		fmt.Printf("%s %s\n", name, version)
-		return nil
-	}
 	return win.Run()
 }

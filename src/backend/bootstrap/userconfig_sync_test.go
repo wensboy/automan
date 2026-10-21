@@ -55,7 +55,7 @@ type fakeContext struct{ files domainstore.Store }
 func (c *fakeContext) Done() <-chan struct{}      { return nil }
 func (c *fakeContext) Err() error                 { return nil }
 func (c *fakeContext) Cancel()                    {}
-func (c *fakeContext) Mode() domaincontext.Mode   { return domaincontext.ModeCLI }
+func (c *fakeContext) Mode() domaincontext.Mode   { return domaincontext.ModeDesktop }
 func (c *fakeContext) Register(string, any) error { return nil }
 func (c *fakeContext) Srv(string) (any, bool)     { return nil, false }
 

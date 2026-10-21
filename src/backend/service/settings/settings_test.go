@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	domaincontext "github.com/wensboy/automan/backend/domain/context"
 	domainsettings "github.com/wensboy/automan/backend/domain/settings"
 	"github.com/wensboy/automan/backend/internal/kits/schemakit"
 )
@@ -216,5 +215,3 @@ func TestApplyDoesNotPersist(t *testing.T) {
 		t.Fatalf("Apply 不应落盘, saves=%d user=%v", store.saves, store.user)
 	}
 }
-
-var _ = domaincontext.ModeCLI // 保持 domaincontext 引用(签名使用其类型)

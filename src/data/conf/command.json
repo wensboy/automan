@@ -2,7 +2,30 @@
     "meta": {
         "namespace": "conf/command"
     },
-    "cli": {},
+    "cli": {
+        "name": "automan",
+        "usage": "Automan desktop & tools",
+        "version": "0.0.1",
+        "action": "root",
+        "commands": [
+            {
+                "name": "version",
+                "usage": "Print version",
+                "action": "version"
+            },
+            {
+                "name": "info",
+                "usage": "Information",
+                "commands": [
+                    {
+                        "name": "version",
+                        "usage": "Print version",
+                        "action": "version"
+                    }
+                ]
+            }
+        ]
+    },
     "runtime": {
         "groups": [
             "setting",

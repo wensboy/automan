@@ -7,7 +7,6 @@ type Mode string
 
 const (
 	ModeDesktop Mode = "desktop"
-	ModeCLI     Mode = "cli"
 )
 
 // Context 是贯穿全链路的根上下文契约.
