@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	domainconfig "github.com/wensboy/automan/backend/domain/config"
 	domaincontext "github.com/wensboy/automan/backend/domain/context"
 	"github.com/wensboy/automan/backend/domain/key"
 	domainlog "github.com/wensboy/automan/backend/domain/log"
@@ -92,6 +93,8 @@ type Service struct {
 	starter       Starter
 	data          fs.FS
 	rulesTemplate string
+	// provider 是 conf 引擎(读 data/conf/*.json 的类型化视图); 服务不自己解析配置文件。
+	provider domainconfig.Provider
 	// root 是应用数据根(绝对路径): basedir/storage 都落在它下面。
 	// 不落到这里的相对路径会被当成子进程的 cwd -> 目录不存在 -> spawn ENOENT。
 	root      string

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io/fs"
 
+	domainconfig "github.com/wensboy/automan/backend/domain/config"
 	"github.com/wensboy/automan/backend/domain/event"
 	domainlog "github.com/wensboy/automan/backend/domain/log"
 	domainsettings "github.com/wensboy/automan/backend/domain/settings"
@@ -27,6 +28,7 @@ import (
 type serviceDeps struct {
 	runtime  *rtengine.Runtime
 	data     fs.FS
+	provider domainconfig.Provider
 	fields   map[string]schemakit.Field
 	defaults map[string]any
 }
@@ -126,7 +128,8 @@ func registerServices(deps serviceDeps) (func(), error) {
 	proxySrv := serviceproxy.New().
 		WithStore(engines.db).
 		WithLogger(engines.logger).
-		WithData(deps.data)
+		WithData(deps.data).
+		WithConfig(deps.provider)
 	// 数据根: 供相对 basedir/storage 解析成绝对路径(否则会成为子进程 cwd 而导致 ENOENT)
 	if engines.rooter != nil {
 		proxySrv = proxySrv.WithRoot(engines.rooter.Root())
@@ -153,7 +156,7 @@ func registerServices(deps serviceDeps) (func(), error) {
 
 	// 命令系统: 清单来自 data/conf/command.json 的 runtime 段; 扩展命令在代码层 Register
 	if err := srvkit.Register(deps.runtime, servicecommand.Key,
-		servicecommand.New().WithData(deps.data).WithLogger(engines.logger)); err != nil {
+		servicecommand.New().WithConfig(deps.provider).WithLogger(engines.logger)); err != nil {
 		return nil, err
 	}
 

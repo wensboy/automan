@@ -42,6 +42,25 @@ func (f *fakeStarter) Stop(_ stdctx.Context, proxyID string, _ time.Duration) er
 	return nil
 }
 
+// fakeProvider 是 conf 引擎的最小替身: 按 key 返回已解析好的配置视图.
+type fakeProvider map[string]any
+
+func (f fakeProvider) Lookup(name string) (any, bool) {
+	value, ok := f[name]
+	return value, ok
+}
+
+// testBridgeConfig 对应 data/conf/bridge.json 的 node.services.proxy 段.
+var testBridgeConfig = fakeProvider{
+	"conf/bridge": map[string]any{
+		"node": map[string]any{
+			"services": map[string]any{
+				"proxy": map[string]any{"root": "proxies", "stopTimeoutMs": 5000},
+			},
+		},
+	},
+}
+
 func startService(t *testing.T, starter Starter, template string) (*Service, *fakeStore, *fakeLogger) {
 	t.Helper()
 	store := &fakeStore{total: 1, affected: 1}
@@ -52,9 +71,8 @@ func startService(t *testing.T, starter Starter, template string) (*Service, *fa
 		WithStarter(starter).
 		WithData(fstest.MapFS{
 			"data/default/proxy.rules.json": &fstest.MapFile{Data: []byte(template)},
-			"data/conf/bridge.json": &fstest.MapFile{Data: []byte(
-				`{"node":{"services":{"proxy":{"root":"proxies","stopTimeoutMs":5000}}}}`)},
-		})
+		}).
+		WithConfig(testBridgeConfig)
 	// 资源操作要求"有当前工作区"(v21 §10): 测试默认给一个
 	svc.currentWorkspace = func() string { return "w-test" }
 	svc.now = func() time.Time { return time.UnixMilli(1700000000000) }

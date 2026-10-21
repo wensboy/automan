@@ -1,16 +1,35 @@
 package command
 
 import (
-	"os"
 	"strings"
 	"testing"
 
 	domaincontext "github.com/wensboy/automan/backend/domain/context"
 )
 
+type fakeProvider map[string]any
+
+func (f fakeProvider) Lookup(name string) (any, bool) {
+	value, ok := f[name]
+	return value, ok
+}
+
 func realService(t *testing.T) *Service {
 	t.Helper()
-	return New().WithData(os.DirFS("../../..")) // ../../.. = src/
+	return New().WithConfig(fakeProvider{
+		"conf/command": map[string]any{
+			"runtime": map[string]any{
+				"groups": []any{"setting", "session", "proxy", "automation"},
+				"setting": []any{
+					map[string]any{"cmd": "open", "label": "Open", "kbd": ""},
+					map[string]any{"cmd": "reset", "label": "Reset", "kbd": ""},
+				},
+				"session":    []any{map[string]any{"cmd": "logout", "label": "Logout", "kbd": ""}},
+				"proxy":      []any{},
+				"automation": []any{},
+			},
+		},
+	}) // ../../.. = src/
 }
 
 // 清单: 只取 runtime, 顺序与 groups 一致, id = group.cmd。

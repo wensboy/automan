@@ -26,8 +26,6 @@ type Store interface {
 
 // 键: 名字即 settings.json 中的路径.
 var (
-	// LastGreetKey 记录最近一次问候的称呼.
-	LastGreetKey = key.New[string]("lastGreet")
 	// WatchMsKey 外部变更检测的轮询间隔 (毫秒).
 	WatchMsKey = key.New[int]("watchMs")
 	// DebounceMsKey 变更事件的合并窗口 (毫秒), 非正表示不去抖.

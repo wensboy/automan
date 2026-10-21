@@ -15,8 +15,10 @@ import (
 	"sync"
 	"time"
 
+	domainconfig "github.com/wensboy/automan/backend/domain/config"
 	domaincontext "github.com/wensboy/automan/backend/domain/context"
 	domainlog "github.com/wensboy/automan/backend/domain/log"
+	"github.com/wensboy/automan/backend/internal/kits/configkit"
 	"github.com/wensboy/automan/backend/internal/kits/logkit"
 )
 
@@ -150,6 +152,13 @@ func (s *Service) WithRoot(root string) *Service {
 	return s
 }
 
+// WithConfig 注入 conf 引擎: bridge 的 basedir/停止超时从 conf/bridge 读取(不再解析文件).
+func (s *Service) WithConfig(provider domainconfig.Provider) *Service {
+	s.provider = provider
+	s.loadData()
+	return s
+}
+
 // WithData 注入只读数据源(data/): 服务**自行**读取模板与 basedir,
 // 组合根只负责把数据源递进来, 不再替服务做解析(v19 §12)。
 func (s *Service) WithData(fsys fs.FS) *Service {
@@ -161,35 +170,42 @@ func (s *Service) WithData(fsys fs.FS) *Service {
 // loadData 读取本服务需要的两个只读数据文件: rules 模板 与 代理 basedir。
 // 失败不阻断启动: 模板缺失时前端退化为 {}; basedir 缺失时用缺省 "proxies"。
 func (s *Service) loadData() {
-	if s.data == nil {
-		return
+	// 1) rules 模板来自 data/(默认值文件, 不属于 conf/*.json)
+	if s.data != nil {
+		s.loadRulesTemplate()
 	}
+	// 2) bridge 参数来自 conf 引擎
+	s.loadBridgeConfig()
+}
+
+// loadRulesTemplate 读取前端编辑器用的 rules 模板(缺省时保持空, 前端退化为 {}).
+func (s *Service) loadRulesTemplate() {
 	if payload, err := fs.ReadFile(s.data, "data/default/proxy.rules.json"); err == nil {
 		s.rulesTemplate = string(payload)
 	} else {
 		s.deliver(domainlog.LevelWarn, "proxy: rules template unavailable", logkit.F("err", err))
 	}
-	if payload, err := fs.ReadFile(s.data, "data/conf/bridge.json"); err == nil {
-		var conf struct {
-			Node struct {
-				Services struct {
-					Proxy struct {
-						Root          string `json:"root"`
-						StopTimeoutMs int    `json:"stopTimeoutMs"`
-					} `json:"proxy"`
-				} `json:"services"`
-			} `json:"node"`
-		}
-		if err := json.Unmarshal(payload, &conf); err == nil {
-			if root := conf.Node.Services.Proxy.Root; root != "" {
-				s.proxyRoot = s.resolveBase(root)
-			}
-			if ms := conf.Node.Services.Proxy.StopTimeoutMs; ms > 0 {
-				s.stopTimeout = time.Duration(ms) * time.Millisecond
-			}
-		} else {
-			s.deliver(domainlog.LevelWarn, "proxy: bridge config invalid", logkit.F("err", err))
-		}
+}
+
+// loadBridgeConfig 从 conf/bridge 读取 basedir 与停止超时(服务不解析 conf 文件).
+func (s *Service) loadBridgeConfig() {
+	if s.provider == nil {
+		return
+	}
+	params, ok := configkit.Get(s.provider, domainconfig.BridgeKey)
+	if !ok {
+		s.deliver(domainlog.LevelWarn, "proxy: bridge config unavailable")
+		return
+	}
+	node, ok := params["node"]
+	if !ok {
+		return
+	}
+	if root := node.Services.Proxy.Root; root != "" {
+		s.proxyRoot = s.resolveBase(root)
+	}
+	if ms := node.Services.Proxy.StopTimeoutMs; ms > 0 {
+		s.stopTimeout = time.Duration(ms) * time.Millisecond
 	}
 }
 

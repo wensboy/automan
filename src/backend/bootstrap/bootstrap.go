@@ -102,6 +102,7 @@ func Run(mode context.Mode, assets, data fs.FS) error {
 	cleanup, err := registerServices(serviceDeps{
 		runtime:  rt,
 		data:     data,
+		provider: provider,
 		fields:   fields,
 		defaults: defaults,
 	})

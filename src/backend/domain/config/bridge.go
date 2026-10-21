@@ -18,6 +18,17 @@ type Bridge struct {
 	Args               []string `json:"args"`
 	Dir                string   `json:"dir"`
 	Env                []string `json:"env"`
+	// Services 是该 daemon 承载的各业务服务的专属参数(当前只有 proxy/automation).
+	Services BridgeServices `json:"services"`
+}
+
+// BridgeServices 是 daemon 下按服务划分的参数.
+type BridgeServices struct {
+	Proxy struct {
+		Root          string `json:"root"`          // 代理 basedir(相对存储根)
+		StopTimeoutMs int    `json:"stopTimeoutMs"` // 停止强杀阈值
+	} `json:"proxy"`
+	Automation map[string]any `json:"automation"`
 }
 
 // BridgeParams 是 conf/bridge 命名空间的整棵对象: daemon 名 -> 参数.

@@ -3,6 +3,5 @@
         "namespace": "conf/settings"
     },
     "watchMs": 2000,
-    "debounceMs": 100,
-    "lastGreet": ""
+    "debounceMs": 100
 }

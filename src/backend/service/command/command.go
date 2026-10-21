@@ -8,17 +8,17 @@
 package command
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/fs"
 	"strings"
 	"sync"
 	"time"
 
+	domainconfig "github.com/wensboy/automan/backend/domain/config"
 	domaincontext "github.com/wensboy/automan/backend/domain/context"
 	"github.com/wensboy/automan/backend/domain/key"
 	domainlog "github.com/wensboy/automan/backend/domain/log"
 	apperr "github.com/wensboy/automan/backend/internal/err"
+	"github.com/wensboy/automan/backend/internal/kits/configkit"
 	"github.com/wensboy/automan/backend/internal/kits/logkit"
 )
 
@@ -65,18 +65,16 @@ type Request struct {
 // Handler 是内部处理器: 默认不导出, 只有 Register 能把它挂到路由表.
 type Handler func(domaincontext.Context, Request) (Result, error)
 
-// Service 是命令服务: 清单来自嵌入的 data/conf/command.json, 路由表在构造时装配.
+// Service 是命令服务: 清单取自 conf 引擎的 conf/command 视图(不直接读文件), 路由表在构造时装配.
 type Service struct {
-	data   fs.FS
-	logger domainlog.Logger
-	now    func() time.Time
+	provider domainconfig.Provider
+	logger   domainlog.Logger
+	now      func() time.Time
 
 	mu       sync.RWMutex
 	handlers map[string]Handler
 	order    []string
 }
-
-const commandPath = "data/conf/command.json"
 
 // New 创建命令服务并装配内置 handler.
 // New 创建命令服务: 只做基础初始化(装配内置 handler); 外部依赖经 WithXxx 链式注入。
@@ -86,8 +84,11 @@ func New() *Service {
 	return s
 }
 
-// WithData 注入只读数据源(读 data/conf/command.json).
-func (s *Service) WithData(data fs.FS) *Service { s.data = data; return s }
+// WithConfig 注入 conf 引擎: 命令清单取自 conf/command 的类型化视图(不直接读文件).
+func (s *Service) WithConfig(provider domainconfig.Provider) *Service {
+	s.provider = provider
+	return s
+}
 
 // WithLogger 注入日志出口.
 func (s *Service) WithLogger(logger domainlog.Logger) *Service { s.logger = logger; return s }
@@ -110,17 +111,16 @@ func (s *Service) Register(id string, handler Handler) error {
 
 // List 返回 runtime 段的命令分组(顺序与配置文件一致; cli 段忽略).
 func (s *Service) List(_ domaincontext.Context) ([]Group, error) {
-	catalog, err := s.catalog()
+	names, entriesByGroup, err := s.catalog()
 	if err != nil {
 		s.fail("list", err)
 		return nil, err
 	}
 
-	groups := make([]Group, 0, len(catalog.Groups))
-	for _, name := range catalog.Groups {
-		entries := catalog.Runtime[name]
-		items := make([]Item, 0, len(entries))
-		for _, entry := range entries {
+	groups := make([]Group, 0, len(names))
+	for _, name := range names {
+		items := make([]Item, 0, len(entriesByGroup[name]))
+		for _, entry := range entriesByGroup[name] {
 			cmd := strings.TrimSpace(entry.Cmd)
 			if cmd == "" {
 				continue
@@ -175,39 +175,24 @@ type runtimeSpec struct {
 	CLI     map[string]any     `json:"cli"`
 }
 
-// catalog 读取并解析 command.json: runtime 的动态分组键用 map 承载.
-func (s *Service) catalog() (runtimeSpec, error) {
-	payload, err := fs.ReadFile(s.data, commandPath)
-	if err != nil {
-		return runtimeSpec{}, fmt.Errorf("%w: command: read config: %v", apperr.New(apperr.CodeServiceFail), err)
+// catalog 取 conf/command 的类型化视图并整理成 groups + 组内条目。
+func (s *Service) catalog() (groups []string, items map[string][]Entry, err error) {
+	if s.provider == nil {
+		return nil, nil, invalid("command config unavailable")
 	}
-	var raw struct {
-		Runtime json.RawMessage `json:"runtime"`
+	params, ok := configkit.Get(s.provider, domainconfig.CommandKey)
+	if !ok {
+		return nil, nil, invalid("command config unavailable")
 	}
-	if err := json.Unmarshal(payload, &raw); err != nil {
-		return runtimeSpec{}, fmt.Errorf("%w: command: parse config: %v", apperr.New(apperr.CodeServiceFail), err)
-	}
-	var runtime map[string]json.RawMessage
-	if err := json.Unmarshal(raw.Runtime, &runtime); err != nil {
-		return runtimeSpec{}, fmt.Errorf("%w: command: parse runtime: %v", apperr.New(apperr.CodeServiceFail), err)
-	}
-
-	spec := runtimeSpec{Runtime: map[string][]Entry{}}
-	if groupsRaw, ok := runtime["groups"]; ok {
-		if err := json.Unmarshal(groupsRaw, &spec.Groups); err != nil {
-			return runtimeSpec{}, fmt.Errorf("%w: command: parse groups: %v", apperr.New(apperr.CodeServiceFail), err)
+	items = map[string][]Entry{}
+	for name, entries := range params.Runtime.Items {
+		converted := make([]Entry, 0, len(entries))
+		for _, entry := range entries {
+			converted = append(converted, Entry{Cmd: entry.Cmd, Label: entry.Label, KBD: entry.KBD})
 		}
+		items[name] = converted
 	}
-	for _, name := range spec.Groups {
-		if entriesRaw, ok := runtime[name]; ok {
-			var entries []Entry
-			if err := json.Unmarshal(entriesRaw, &entries); err != nil {
-				return runtimeSpec{}, fmt.Errorf("%w: command: parse group %s: %v", apperr.New(apperr.CodeServiceFail), name, err)
-			}
-			spec.Runtime[name] = entries
-		}
-	}
-	return spec, nil
+	return params.Runtime.Groups, items, nil
 }
 
 // registerBuiltin 装配内置命令(与 command.json 的 runtime 条目一一对应).

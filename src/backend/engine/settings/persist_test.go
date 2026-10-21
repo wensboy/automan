@@ -8,11 +8,11 @@ import (
 // 落盘键过滤: 用户文件只承载允许的键, 程序参数/运行态键不写进去(见 v15 第 12 节 B).
 func TestFilterOverrides(t *testing.T) {
 	overrides := map[string]any{
-		"appearence.mode":  "dark",
-		"general.language": "Chinese",
-		"lastGreet":        "wens",
+		"appearence.mode":       "dark",
+		"general.language":      "Chinese",
+		"conf.settings.watchMs": 2000,
 	}
-	allow := func(name string) bool { return name != "lastGreet" }
+	allow := func(name string) bool { return name != "conf.settings.watchMs" }
 
 	kept := filterOverrides(overrides, allow)
 	names := make([]string, 0, len(kept))
