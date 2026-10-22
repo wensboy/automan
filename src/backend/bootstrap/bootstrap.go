@@ -27,15 +27,6 @@ import (
 
 // Run 组装并执行完整启动链路.
 func Run(assets, data fs.FS) error {
-	// 设置的键表与默认值在装配引擎前就要就绪: 键表用于限定"哪些键可落盘", 默认值注入服务层
-	fields, err := loadSchemaFields(data)
-	if err != nil {
-		return err
-	}
-	defaults, err := loadDefaults(data)
-	if err != nil {
-		return err
-	}
 
 	rt := rtengine.New(rtengine.WithMode(context.ModeDesktop), rtengine.WithRegistry(registry.New()))
 	defer rt.Cancel()
@@ -53,6 +44,11 @@ func Run(assets, data fs.FS) error {
 			application.NewService(apiweb.NewWorkspaceService(rt)),
 		),
 	)
+
+	fields, err := loadSchemaFields(data)
+	if err != nil {
+		return err
+	}
 
 	engines := []engine.Engine{
 		confengine.New(confengine.WithFS(data), confengine.WithDir("data/conf")),
@@ -102,7 +98,6 @@ func Run(assets, data fs.FS) error {
 		data:     data,
 		provider: provider,
 		fields:   fields,
-		defaults: defaults,
 	})
 	if err != nil {
 		return err

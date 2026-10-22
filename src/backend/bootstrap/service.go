@@ -31,7 +31,6 @@ type serviceDeps struct {
 	data     fs.FS
 	provider domainconfig.Provider
 	fields   map[string]schemakit.Field
-	defaults map[string]any
 }
 
 // serviceEngines 是一次性解析出来的引擎依赖。
@@ -99,6 +98,12 @@ func registerServices(deps serviceDeps) (func(), error) {
 		return nil, err
 	}
 
+	// 默认值注入服务层
+	defaults, err := loadDefaults(deps.data)
+	if err != nil {
+		return nil, err
+	}
+
 	// 运行时提示: 先建实例(依赖在下方配置), 各业务服务注入它来产生提示
 	noticeSvc := servicenotice.New()
 
@@ -107,7 +112,7 @@ func registerServices(deps serviceDeps) (func(), error) {
 			WithStore(engines.settings).
 			WithFiles(engines.files).
 			WithFields(deps.fields).
-			WithDefaults(deps.defaults)); err != nil {
+			WithDefaults(defaults)); err != nil {
 		return nil, err
 	}
 
