@@ -3,7 +3,7 @@ import { ChevronDownIcon, XIcon } from "lucide-react"
 import { cn } from "cn"
 
 import { Button } from "@/components/ui/button"
-import type { Notice } from "../../../../bindings/github.com/wensboy/automan/backend/api/web/models"
+import type { Entry as Notice } from "../../../../bindings/github.com/wensboy/automan/backend/service/notice/models"
 import { staticValue } from "@/components/custom/share/provider/static-provider"
 
 /**

@@ -16,6 +16,7 @@ import (
 	domaincontext "github.com/wensboy/automan/backend/domain/context"
 	"github.com/wensboy/automan/backend/domain/key"
 	domainlog "github.com/wensboy/automan/backend/domain/log"
+	domainnotice "github.com/wensboy/automan/backend/domain/notice"
 	domainstore "github.com/wensboy/automan/backend/domain/store"
 	"github.com/wensboy/automan/backend/internal/cast"
 	apperr "github.com/wensboy/automan/backend/internal/err"
@@ -64,10 +65,11 @@ type Page struct {
 
 // Service 编排用户 CRUD; store 与 logger 在构造时注入.
 type Service struct {
-	store  domainstore.Store
-	logger domainlog.Logger
-	now    func() time.Time
-	newID  func() string
+	notifier domainnotice.Publisher
+	store    domainstore.Store
+	logger   domainlog.Logger
+	now      func() time.Time
+	newID    func() string
 }
 
 // New 创建用户服务.
@@ -143,6 +145,7 @@ func (s *Service) Create(_ domaincontext.Context, input Input) (User, error) {
 		return User{}, err
 	}
 	s.info("user: created", logkit.F("id", id), logkit.F("username", normalized.Username))
+	s.notify(domainnotice.LevelSuccess, "account", "User created", normalized.Username)
 	return s.mustGet(id)
 }
 
@@ -172,6 +175,7 @@ func (s *Service) Update(_ domaincontext.Context, id string, input Input) (User,
 		return User{}, err
 	}
 	s.info("user: updated", logkit.F("id", id), logkit.F("username", normalized.Username))
+	s.notify(domainnotice.LevelSuccess, "account", "Profile updated", normalized.Username)
 	return s.mustGet(id)
 }
 
@@ -376,3 +380,17 @@ func newID() string {
 }
 
 var _ = errors.Is
+
+// WithNotice 注入业务提示出口(可为 nil)。
+func (s *Service) WithNotice(publisher domainnotice.Publisher) *Service {
+	s.notifier = publisher
+	return s
+}
+
+// notify 投递一条业务提示(未注入时静默跳过)。
+func (s *Service) notify(level domainnotice.Level, label, title, content string) {
+	if s.notifier == nil {
+		return
+	}
+	_, _ = s.notifier.Push(domainnotice.Entry{Level: string(level), Label: label, Title: title, Content: content})
+}

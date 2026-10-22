@@ -1,6 +1,5 @@
 import * as React from "react"
 import { ChevronsUpDown, GalleryVerticalEnd, Plus, X } from "lucide-react"
-import { toast } from "sonner"
 
 import {
   DropdownMenu,
@@ -27,6 +26,7 @@ import {
 } from "@/components/ui/sidebar"
 import { staticValue } from "@/components/custom/share/provider/static-provider"
 import { useSessionStore } from "@/store/session"
+import { notify } from "@/lib/notice"
 import { useWorkspaceStore } from "@/store/workspace"
 
 /**
@@ -55,7 +55,7 @@ export default function WorkspaceSwitcher() {
     }
     reset()
     void load().catch((error: unknown) => {
-      toast.error(error instanceof Error ? error.message : String(error))
+      notify("error", "workspace", error instanceof Error ? error.message : String(error))
     })
   }, [userId, load, reset])
 
@@ -72,7 +72,7 @@ export default function WorkspaceSwitcher() {
       setName("")
       setAddOpen(false)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error))
+      notify("error", "workspace", error instanceof Error ? error.message : String(error))
     } finally {
       setPending(false)
     }
@@ -82,7 +82,7 @@ export default function WorkspaceSwitcher() {
     try {
       await remove(id)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error))
+      notify("error", "workspace", error instanceof Error ? error.message : String(error))
     }
   }
 
@@ -127,7 +127,7 @@ export default function WorkspaceSwitcher() {
                   className="group/ws gap-2 p-2"
                   onSelect={() => {
                     void select(item.id).catch((error: unknown) => {
-                      toast.error(error instanceof Error ? error.message : String(error))
+                      notify("error", "workspace", error instanceof Error ? error.message : String(error))
                     })
                   }}
                 >

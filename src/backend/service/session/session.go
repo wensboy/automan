@@ -23,6 +23,7 @@ import (
 	"github.com/wensboy/automan/backend/domain/event"
 	"github.com/wensboy/automan/backend/domain/key"
 	domainlog "github.com/wensboy/automan/backend/domain/log"
+	domainnotice "github.com/wensboy/automan/backend/domain/notice"
 	domainsettings "github.com/wensboy/automan/backend/domain/settings"
 	domainstore "github.com/wensboy/automan/backend/domain/store"
 	"github.com/wensboy/automan/backend/internal/cast"
@@ -111,6 +112,7 @@ type config struct {
 
 // Service 编排会话; 依赖在构造时注入.
 type Service struct {
+	notifier domainnotice.Publisher
 	store    domainstore.Store
 	settings domainsettings.Store
 	ebus     event.Bus
@@ -347,6 +349,7 @@ func (s *Service) SignUp(_ domaincontext.Context, input SignUpInput) (Session, e
 	s.setCurrentUser(row.ID)
 	s.writeLoginLog(row.ID, username, "success", "", authkit.HashToken(result.Token))
 	s.info("session: signup", logkit.F("id", row.ID), logkit.F("username", username))
+	s.notify(domainnotice.LevelSuccess, "account", "Account created", username)
 	s.emit(event.TopicSessionSignup, event.SessionSignup{UserID: row.ID, Username: username, At: now})
 	return result, nil
 }
@@ -377,6 +380,7 @@ func (s *Service) SignIn(_ domaincontext.Context, username, password string) (Se
 	}
 	s.setCurrentUser(row.ID)
 	s.writeLoginLog(row.ID, username, "success", "", authkit.HashToken(result.Token))
+	s.notify(domainnotice.LevelSuccess, "account", "Signed in", username)
 	s.info("session: login", logkit.F("id", row.ID), logkit.F("username", username),
 		logkit.F("expiresAt", result.ExpiresAt))
 	s.emit(event.TopicSessionLogin, event.SessionLogin{UserID: row.ID, Username: username, At: s.now().UnixMilli()})
@@ -393,6 +397,7 @@ func (s *Service) SignOut(_ domaincontext.Context, token string) error {
 	s.cache.Delete(strings.TrimSpace(token))
 	s.clearCurrentUser(snapshot.UserID)
 	s.info("session: logout", logkit.F("id", snapshot.UserID), logkit.F("username", snapshot.Username))
+	s.notify(domainnotice.LevelSuccess, "account", "Signed out", snapshot.Username)
 	s.emit(event.TopicSessionLogout, event.SessionLogout{
 		UserID: snapshot.UserID, Username: snapshot.Username, At: s.now().UnixMilli(),
 	})
@@ -718,4 +723,18 @@ func newID() string {
 	buf := make([]byte, 8)
 	_, _ = rand.Read(buf)
 	return fmt.Sprintf("%013x%s", time.Now().UnixMilli(), hex.EncodeToString(buf))
+}
+
+// WithNotice 注入业务提示出口(可为 nil)。
+func (s *Service) WithNotice(publisher domainnotice.Publisher) *Service {
+	s.notifier = publisher
+	return s
+}
+
+// notify 投递一条业务提示(未注入时静默跳过)。
+func (s *Service) notify(level domainnotice.Level, label, title, content string) {
+	if s.notifier == nil {
+		return
+	}
+	_, _ = s.notifier.Push(domainnotice.Entry{Level: string(level), Label: label, Title: title, Content: content})
 }

@@ -162,6 +162,18 @@
                             "description": "单个用户可创建的工作区数量上限; 超出后创建会被拒绝."
                         }
                     }
+                },
+                "notice": {
+                    "type": "object",
+                    "description": "通知(notification)相关设置.",
+                    "properties": {
+                        "doNotDisturb": {
+                            "type": "boolean",
+                            "default": false,
+                            "description": "勿扰模式: 开启后业务提示不再入队, 也不弹 toast."
+                        }
+                    },
+                    "additionalProperties": false
                 }
             },
             "additionalProperties": false

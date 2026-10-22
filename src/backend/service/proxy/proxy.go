@@ -20,6 +20,7 @@ import (
 	domaincontext "github.com/wensboy/automan/backend/domain/context"
 	"github.com/wensboy/automan/backend/domain/key"
 	domainlog "github.com/wensboy/automan/backend/domain/log"
+	domainnotice "github.com/wensboy/automan/backend/domain/notice"
 	domainstore "github.com/wensboy/automan/backend/domain/store"
 	"github.com/wensboy/automan/backend/internal/cast"
 	apperr "github.com/wensboy/automan/backend/internal/err"
@@ -108,6 +109,8 @@ type Service struct {
 	stopTimeout      time.Duration
 	startWait        time.Duration
 	index            *runtimeIndex
+	// notifier 是业务提示出口(可为 nil: 不产生提示)
+	notifier domainnotice.Publisher
 	// opMu 串行化启停: header 批量与行菜单可能**同时**发起(不同入口),
 	// 并发会让同一实例被"启动中又被停止"或重复 claim, 极端情况下进程层面出错。
 	// 见 docs/design/v23.md §26。
@@ -211,6 +214,7 @@ func (s *Service) Create(_ domaincontext.Context, input Input) (Proxy, error) {
 	}
 
 	s.info("proxy: created", logkit.F("id", id), logkit.F("name", normalized.Name), logkit.F("target", normalized.Target))
+	s.notify(domainnotice.LevelSuccess, "proxy", "Proxy created", normalized.Name)
 	return s.mustGet(id)
 }
 
@@ -252,6 +256,7 @@ func (s *Service) Update(_ domaincontext.Context, id string, input Input) (Proxy
 
 	s.info("proxy: updated", logkit.F("id", id), logkit.F("name", normalized.Name),
 		logkit.F("fields", strings.Join(changedFields(current, normalized), ",")))
+	s.notify(domainnotice.LevelSuccess, "proxy", "Proxy updated", normalized.Name)
 	return s.mustGet(id)
 }
 
@@ -276,6 +281,7 @@ func (s *Service) Delete(_ domaincontext.Context, id string) error {
 		return s.notFound(id)
 	}
 	s.info("proxy: deleted", logkit.F("id", id), logkit.F("name", current.Name))
+	s.notify(domainnotice.LevelSuccess, "proxy", "Proxy deleted", current.Name)
 	return nil
 }
 
@@ -547,4 +553,18 @@ func newID() string {
 	buf := make([]byte, 8)
 	_, _ = rand.Read(buf)
 	return fmt.Sprintf("%013x%s", time.Now().UnixMilli(), hex.EncodeToString(buf))
+}
+
+// WithNotice 注入业务提示出口(可为 nil)。
+func (s *Service) WithNotice(publisher domainnotice.Publisher) *Service {
+	s.notifier = publisher
+	return s
+}
+
+// notify 投递一条业务提示(未注入时静默跳过)。
+func (s *Service) notify(level domainnotice.Level, label, title, content string) {
+	if s.notifier == nil {
+		return
+	}
+	_, _ = s.notifier.Push(domainnotice.Entry{Level: string(level), Label: label, Title: title, Content: content})
 }

@@ -31,6 +31,9 @@
         },
         "workspace": {
             "limit": 32
+        },
+        "notice": {
+            "doNotDisturb": false
         }
     },
     "advanced": {

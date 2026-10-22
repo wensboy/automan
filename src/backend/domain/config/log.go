@@ -16,8 +16,6 @@ type Log struct {
 	StreamIntervalMs int `json:"streamIntervalMs"`
 	StreamBatch      int `json:"streamBatch"`
 	StreamQueue      int `json:"streamQueue"`
-	// NotifyCapacity 是运行时提示队列的容量(内存环形, 超出丢最旧; 见 docs/design/v20.md §7 A).
-	NotifyCapacity int `json:"notifyCapacity"`
 }
 
 // LogKey 取整个 log 配置 (namespace 根).

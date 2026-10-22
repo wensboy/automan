@@ -16,13 +16,6 @@ export type RecordRow = {
 /** rows-per-page 可选值 (页脚下拉, 不显示提示文本)。 */
 export const recordPageSizes = [5, 10, 20]
 
-export const recordStatusLabel: Record<RecordStatus, string> = {
-  running: "Running",
-  stopped: "Stopped",
-  error: "Error",
-  exception: "Exception",
-}
-
 export const records: RecordRow[] = [
   { id: "rc-1", name: "session-0912", target: "127.0.0.1:8899", status: "running", updatedAt: "2026-10-13 09:12" },
   { id: "rc-2", name: "session-0840", target: "10.20.4.11:8080", status: "running", updatedAt: "2026-10-13 08:40" },

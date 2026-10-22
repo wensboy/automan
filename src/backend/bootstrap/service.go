@@ -16,6 +16,7 @@ import (
 	"github.com/wensboy/automan/backend/internal/kits/srvkit"
 	servicecommand "github.com/wensboy/automan/backend/service/command"
 	servicehelp "github.com/wensboy/automan/backend/service/help"
+	servicenotice "github.com/wensboy/automan/backend/service/notice"
 	serviceproxy "github.com/wensboy/automan/backend/service/proxy"
 	servicesession "github.com/wensboy/automan/backend/service/session"
 	servicesettings "github.com/wensboy/automan/backend/service/settings"
@@ -98,8 +99,11 @@ func registerServices(deps serviceDeps) (func(), error) {
 		return nil, err
 	}
 
+	// 运行时提示: 先建实例(依赖在下方配置), 各业务服务注入它来产生提示
+	noticeSvc := servicenotice.New()
+
 	if err := srvkit.Register(deps.runtime, servicesettings.Key,
-		servicesettings.New().
+		servicesettings.New().WithNotice(noticeSvc).
 			WithStore(engines.settings).
 			WithFiles(engines.files).
 			WithFields(deps.fields).
@@ -109,10 +113,10 @@ func registerServices(deps serviceDeps) (func(), error) {
 
 	// 用户与会话: session 直接经 settings engine 读生效配置, user 只管用户数据(两个 srv 互不调用)
 	if err := srvkit.Register(deps.runtime, serviceuser.Key,
-		serviceuser.New().WithStore(engines.db).WithLogger(engines.logger)); err != nil {
+		serviceuser.New().WithNotice(noticeSvc).WithStore(engines.db).WithLogger(engines.logger)); err != nil {
 		return nil, err
 	}
-	sessionSrv := servicesession.New().
+	sessionSrv := servicesession.New().WithNotice(noticeSvc).
 		WithStore(engines.db).
 		WithSettings(engines.settings).
 		WithEventBus(engines.ebus).
@@ -127,6 +131,7 @@ func registerServices(deps serviceDeps) (func(), error) {
 		WithStore(engines.db).
 		WithLogger(engines.logger).
 		WithSettings(engines.settings).
+		WithNotice(noticeSvc).
 		WithCurrentUser(sessionSrv.CurrentUserID)
 	if err := srvkit.Register(deps.runtime, serviceworkspace.Key, workspaceSrv); err != nil {
 		return nil, err
@@ -137,7 +142,8 @@ func registerServices(deps serviceDeps) (func(), error) {
 		WithStore(engines.db).
 		WithLogger(engines.logger).
 		WithData(deps.data).
-		WithConfig(deps.provider)
+		WithConfig(deps.provider).
+		WithNotice(noticeSvc)
 	// 数据根: 供相对 basedir/storage 解析成绝对路径(否则会成为子进程 cwd 而导致 ENOENT)
 	if engines.rooter != nil {
 		proxySrv = proxySrv.WithRoot(engines.rooter.Root())
@@ -159,6 +165,23 @@ func registerServices(deps serviceDeps) (func(), error) {
 
 	if err := srvkit.Register(deps.runtime, servicehelp.Key,
 		servicehelp.New().WithData(deps.data).WithLogger(engines.logger).WithEventBus(engines.ebus)); err != nil {
+		return nil, err
+	}
+
+	// 运行时提示: 独立服务持有队列; 前端 toast/抽屉与后端 Push 共用同一条链路。
+	// 勿扰模式实时读设置项 general.notice.doNotDisturb(开启时不排队、不弹 toast)。
+	noticeSvc = noticeSvc.WithEventBus(engines.ebus).WithLogger(engines.logger)
+	if settingsSvc, ok := srvkit.Of(deps.runtime, servicesettings.Key); ok {
+		noticeSvc = noticeSvc.WithDND(func() bool {
+			entry, err := settingsSvc.Get(deps.runtime, "general.notice.doNotDisturb")
+			if err != nil {
+				return false
+			}
+			enabled, _ := entry.Value.(bool)
+			return enabled
+		})
+	}
+	if err := srvkit.Register(deps.runtime, servicenotice.Key, noticeSvc); err != nil {
 		return nil, err
 	}
 

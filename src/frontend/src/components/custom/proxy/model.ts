@@ -65,7 +65,7 @@ export function toInput(row: Proxy): Input {
  * 把 JSON 文本压成**紧凑字符串**(入库形态: 不含缩进与换行)。
  * 解析失败原样返回, 交给后端给出明确的 JSON 校验错误(前端不替用户"修正"数据)。
  */
-export function compactJSON(raw: string): string {
+function compactJSON(raw: string): string {
   const trimmed = (raw ?? "").trim()
   if (trimmed === "") return raw ?? ""
   try {

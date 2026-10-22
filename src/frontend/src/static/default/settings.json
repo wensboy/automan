@@ -68,6 +68,14 @@
                 "description": "Maximum number of workspaces.",
                 "type": "number"
             }
+        },
+        "notice": {
+            "doNotDisturb": {
+                "key": "general.notice.doNotDisturb",
+                "label": "Notice.DoNotDisturb",
+                "description": "Silence business notices (no toast, nothing queued).",
+                "type": "bool"
+            }
         }
     },
     "advanced": {}

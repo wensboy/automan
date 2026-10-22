@@ -105,7 +105,6 @@ export default function AccountDialog({
       }
       return URL.createObjectURL(file)
     })
-    toast.success(staticValue("sidebar.account.avatarUpdated") ?? "")
   }
 
   const saveAccount = async () => {
@@ -118,7 +117,6 @@ export default function AccountDialog({
       const updated = await UpdateUser(me.id, { username: username.trim(), nickname: nickname.trim(), password: "" })
       updateStoredUser(updated)
       setAccountEditing(false)
-      toast.success(staticValue("sidebar.account.informationSaved") ?? "")
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error))
     }

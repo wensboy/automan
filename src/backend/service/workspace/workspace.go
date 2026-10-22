@@ -17,6 +17,7 @@ import (
 	domaincontext "github.com/wensboy/automan/backend/domain/context"
 	"github.com/wensboy/automan/backend/domain/key"
 	domainlog "github.com/wensboy/automan/backend/domain/log"
+	domainnotice "github.com/wensboy/automan/backend/domain/notice"
 	domainsettings "github.com/wensboy/automan/backend/domain/settings"
 	domainstore "github.com/wensboy/automan/backend/domain/store"
 	"github.com/wensboy/automan/backend/internal/cast"
@@ -47,6 +48,7 @@ type Workspace struct {
 
 // Service 编排工作区数据与"当前工作区"。
 type Service struct {
+	notifier domainnotice.Publisher
 	store    domainstore.Store
 	settings domainsettings.Store
 	logger   domainlog.Logger
@@ -172,6 +174,7 @@ func (s *Service) Delete(_ domaincontext.Context, id string) error {
 	s.mu.Unlock()
 
 	s.info("workspace: deleted", logkit.F("id", trimmed), logkit.F("name", current.Name))
+	s.notify(domainnotice.LevelSuccess, "workspace", "Workspace deleted", current.Name)
 	return nil
 }
 
@@ -204,6 +207,7 @@ func (s *Service) SetCurrent(_ domaincontext.Context, id string) error {
 	s.current[uid] = item.ID
 	s.mu.Unlock()
 	s.info("workspace: switched", logkit.F("id", item.ID), logkit.F("name", item.Name))
+	s.notify(domainnotice.LevelSuccess, "workspace", "Workspace switched", item.Name)
 	return nil
 }
 
@@ -272,6 +276,7 @@ func (s *Service) create(userID, name string) (Workspace, error) {
 		return Workspace{}, err
 	}
 	s.info("workspace: created", logkit.F("id", item.ID), logkit.F("name", item.Name), logkit.F("user", userID))
+	s.notify(domainnotice.LevelSuccess, "workspace", "Workspace created", item.Name)
 	return item, nil
 }
 
@@ -346,3 +351,17 @@ func notFound(id string) error {
 }
 
 var _ = errors.Is
+
+// WithNotice 注入业务提示出口(可为 nil)。
+func (s *Service) WithNotice(publisher domainnotice.Publisher) *Service {
+	s.notifier = publisher
+	return s
+}
+
+// notify 投递一条业务提示(未注入时静默跳过)。
+func (s *Service) notify(level domainnotice.Level, label, title, content string) {
+	if s.notifier == nil {
+		return
+	}
+	_, _ = s.notifier.Push(domainnotice.Entry{Level: string(level), Label: label, Title: title, Content: content})
+}

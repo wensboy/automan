@@ -152,11 +152,6 @@ export async function saveSettings(patch: SettingsValues): Promise<void> {
   await SettingsService.Save()
 }
 
-/** 抹掉某键的覆盖并落盘(回落默认层)。 */
-export async function resetSetting(key: string): Promise<void> {
-  await SettingsService.Reset(key)
-  await SettingsService.Save()
-}
 
 export type SettingsEventKind = "changed" | "saved" | "reloaded"
 

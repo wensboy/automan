@@ -359,7 +359,6 @@ export default function SettingsDialog({
     try {
       await saveSettings(diff)
       setLoaded(values)
-      toast.success("Settings saved")
     } catch {
       toast.error("Failed to save settings")
     }

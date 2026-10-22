@@ -1,5 +1,4 @@
 import * as React from "react"
-import { toast } from "sonner"
 
 import ProxyFooter from "@/components/custom/proxy/footer"
 import ProxySheet from "@/components/custom/proxy/proxy-sheet"
@@ -16,6 +15,7 @@ import {
 } from "../../../bindings/github.com/wensboy/automan/backend/api/web/proxyservice"
 import { staticValue } from "@/components/custom/share/provider/static-provider"
 import { useWorkspaceStore } from "@/store/workspace"
+import { notify } from "@/lib/notice"
 import {
   toPayload,
   type Input,
@@ -78,7 +78,7 @@ export default function Proxy() {
       // 统计口径由后端给出: 只受搜索影响, 不受状态过滤收窄(否则选中某状态后其余计数恒为 0)
       setCounts(result?.counts ?? {})
     } catch (error) {
-      toast.error(`Failed to load proxies: ${messageOf(error)}`)
+      notify("error", "proxy", `Failed to load proxies: ${messageOf(error)}`)
     } finally {
       setLoading(false)
     }
@@ -96,9 +96,9 @@ export default function Proxy() {
     try {
       const raw = await Template()
       if (raw && raw.trim() !== "") return raw
-      toast.error("rules template is empty (data/default/proxy.rules.json)")
+      notify("error", "proxy", "rules template is empty (data/default/proxy.rules.json)")
     } catch (error) {
-      toast.error(`Template failed: ${messageOf(error)}`)
+      notify("error", "proxy", `Template failed: ${messageOf(error)}`)
     }
     return ""
   }, [])
@@ -158,7 +158,6 @@ export default function Proxy() {
   const removeRow = async (row: Proxy) => {
     try {
       await Delete(row.id)
-      toast.success(`${staticValue("contentArea.proxy.deleted") ?? ""}${row.name}`)
       setSelectedIds((prev) => {
         const next = new Set(prev)
         next.delete(row.id)
@@ -166,7 +165,7 @@ export default function Proxy() {
       })
       await reload()
     } catch (error) {
-      toast.error(messageOf(error))
+      notify("error", "proxy", messageOf(error))
     }
   }
 
@@ -179,45 +178,34 @@ export default function Proxy() {
     } else {
       await Create(payload)
     }
-    toast.success(
-      (id ? staticValue("contentArea.proxy.updated") : staticValue("contentArea.proxy.saved")) ?? "",
-    )
     await reload()
   }
 
   // 启动: 参数以 sqlite 为准, 让步结果由后端写回并返回实际生效值
   const startIds = async (ids: string[]) => {
     if (ids.length === 0) {
-      toast.error(staticValue("contentArea.proxy.noSelection") ?? "")
+      notify("error", "proxy", staticValue("contentArea.proxy.noSelection") ?? "")
       return
     }
     try {
-      const result = await Start(ids)
-      const started = result?.items?.length ?? 0
-      const failed = result?.failed ?? []
-      if (started > 0) {
-        toast.success(`${staticValue("contentArea.proxy.started") ?? ""} (${started})`)
-      }
-      for (const item of failed) {
-        toast.error(`${item.name}: ${item.reason}`)
-      }
+      // 成功/逐条失败提示由后端 service 走 notice; 这里只负责刷新列表与兜底异常
+      await Start(ids)
       await reload()
     } catch (error) {
-      toast.error(messageOf(error))
+      notify("error", "proxy", messageOf(error))
     }
   }
 
   const stopIds = async (ids: string[]) => {
     if (ids.length === 0) {
-      toast.error(staticValue("contentArea.proxy.noSelection") ?? "")
+      notify("error", "proxy", staticValue("contentArea.proxy.noSelection") ?? "")
       return
     }
     try {
       await Stop(ids)
-      toast.success(staticValue("contentArea.proxy.stopped") ?? "")
       await reload()
     } catch (error) {
-      toast.error(messageOf(error))
+      notify("error", "proxy", messageOf(error))
     }
   }
 
@@ -242,7 +230,7 @@ export default function Proxy() {
 
   const refresh = async () => {
     await reload()
-    toast.success(staticValue("contentArea.proxy.refreshed") ?? "")
+    notify("success", "proxy", staticValue("contentArea.proxy.refreshed") ?? "")
   }
 
   return (
@@ -281,7 +269,9 @@ export default function Proxy() {
           onToggleRow={toggleRow}
           onToggleAll={toggleAll}
           onEdit={openEdit}
-          onInspect={(row) => toast(`${staticValue("contentArea.proxy.inspected") ?? ""}${row.name}`)}
+          onInspect={(row) =>
+            notify("info", "proxy", `${staticValue("contentArea.proxy.inspected") ?? ""}${row.name}`)
+          }
           onDelete={(row) => void removeRow(row)}
           onStatus={applyStatus}
         />

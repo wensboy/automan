@@ -42,10 +42,6 @@ export async function applyTheme(dark: boolean): Promise<void> {
   }
 }
 
-/** 当前生效的主题 id(未加载时为空)。 */
-export function currentThemeID(): string {
-  return palette?.id ?? ""
-}
 
 /**
  * 订阅设置变化后重新应用主题。

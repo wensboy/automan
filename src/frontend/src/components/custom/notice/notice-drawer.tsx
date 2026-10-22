@@ -19,14 +19,19 @@ import { staticValue } from "@/components/custom/share/provider/static-provider"
 import {
   clearNotices,
   dismissNotice,
+  loadNotices,
   markNoticesRead,
   snapshotNoticeState,
   subscribeNotices,
 } from "@/lib/notice"
+import { Get, Set } from "../../../../bindings/github.com/wensboy/automan/backend/api/web/settingsservice"
+
+/** 勿扰开关对应的设置键(服务端每次 Push 都会重新读它)。 */
+const DND_KEY = "general.notice.doNotDisturb"
 
 /**
  * 通知抽屉: 从右侧滑出, 自上而下为 标题 / 搜索 / 操作行 / 可滚动列表。
- * 受控组件 (open/onOpenChange); 数据来自 mock, 列表的增删只作用于本层副本。
+ * 受控组件 (open/onOpenChange); 数据来自后端队列(打开时同步), 未读/勿扰见 lib/notice 与设置项。
  */
 export default function NoticeDrawer({
   open,
@@ -39,11 +44,32 @@ export default function NoticeDrawer({
   const { items } = React.useSyncExternalStore(subscribeNotices, snapshotNoticeState)
   const [query, setQuery] = React.useState("")
 
-  // 打开抽屉 = 已读(铃铛红点归零); 队列本身不清
+  // 打开抽屉: 先与后端队列同步(列表只展示"当前在 notification 里"的条目), 再标记已读。
+  // 队列本身不清; 清除是显式操作(下面按钮)。
   React.useEffect(() => {
-    if (open) markNoticesRead()
+    if (!open) return
+    void loadNotices()
+    markNoticesRead()
   }, [open])
+
+  // 勿扰是**设置项**(general.notice.doNotDisturb): 打开抽屉时读回真实值, 切换即落库;
+  // 服务端每次 Push 都会重新读它, 因此切换立即生效(开启时既不弹 toast 也不入队)。
   const [dnd, setDnd] = React.useState(false)
+  React.useEffect(() => {
+    if (!open) return
+    void Get(DND_KEY)
+      .then((entry) => setDnd(Boolean(entry?.value)))
+      .catch(() => setDnd(false))
+  }, [open])
+
+  const toggleDND = (): void => {
+    const next = !dnd
+    void Set(DND_KEY, next)
+      .then(() => setDnd(next))
+      .catch((error: unknown) => {
+        toast.error(error instanceof Error ? error.message : String(error))
+      })
+  }
 
   const keyword = query.trim().toLowerCase()
   const visible =
@@ -66,7 +92,7 @@ export default function NoticeDrawer({
           <div className="flex items-center justify-end gap-2">
             <SwitchButton
               active={dnd}
-              onToggle={() => setDnd((prev) => !prev)}
+              onToggle={toggleDND}
               aria-label={staticValue("sidebar.notice.doNotDisturb")}
             >
               <BellOffIcon className="size-4" />

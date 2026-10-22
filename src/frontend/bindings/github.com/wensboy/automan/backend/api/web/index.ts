@@ -19,7 +19,3 @@ export {
     UserService,
     WorkspaceService
 };
-
-export type {
-    Notice
-} from "./models.js";

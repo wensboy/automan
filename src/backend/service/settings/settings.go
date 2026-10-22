@@ -19,6 +19,7 @@ import (
 
 	domaincontext "github.com/wensboy/automan/backend/domain/context"
 	"github.com/wensboy/automan/backend/domain/key"
+	domainnotice "github.com/wensboy/automan/backend/domain/notice"
 	domainsettings "github.com/wensboy/automan/backend/domain/settings"
 	domainstore "github.com/wensboy/automan/backend/domain/store"
 	apperr "github.com/wensboy/automan/backend/internal/err"
@@ -40,6 +41,7 @@ type Entry struct {
 
 // Service 编排设置读写; 引擎与 schema 键表在构造时注入.
 type Service struct {
+	notifier domainnotice.Publisher
 	store    domainsettings.Store
 	files    domainstore.Store // 用户目录(动态选项的文件来源, 例 theme.json)
 	fields   map[string]schemakit.Field
@@ -369,4 +371,18 @@ func matchesScalar(kind string, value any) bool {
 	default:
 		return false
 	}
+}
+
+// WithNotice 注入业务提示出口(可为 nil)。
+func (s *Service) WithNotice(publisher domainnotice.Publisher) *Service {
+	s.notifier = publisher
+	return s
+}
+
+// notify 投递一条业务提示(未注入时静默跳过)。
+func (s *Service) notify(level domainnotice.Level, label, title, content string) {
+	if s.notifier == nil {
+		return
+	}
+	_, _ = s.notifier.Push(domainnotice.Entry{Level: string(level), Label: label, Title: title, Content: content})
 }

@@ -12,7 +12,7 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as $models from "./models.js";
+import * as notice$0 from "../../service/notice/models.js";
 
 /**
  * Clear 清空后端队列(UI 点"清除").
@@ -24,6 +24,13 @@ export function Clear(): $CancellablePromise<void> {
 /**
  * List 返回当前队列(最新在前).
  */
-export function List(): $CancellablePromise<$models.Notice[] | null> {
+export function List(): $CancellablePromise<notice$0.Entry[] | null> {
     return $Call.ByID(920686083);
+}
+
+/**
+ * Push 投递一条提示(前端触发的业务提示也走这里, 保证与后端触发同源).
+ */
+export function Push(level: string, label: string, title: string, content: string): $CancellablePromise<notice$0.Entry> {
+    return $Call.ByID(2722171327, level, label, title, content);
 }

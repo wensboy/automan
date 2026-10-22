@@ -18,6 +18,7 @@ import (
 	domainconfig "github.com/wensboy/automan/backend/domain/config"
 	domaincontext "github.com/wensboy/automan/backend/domain/context"
 	domainlog "github.com/wensboy/automan/backend/domain/log"
+	domainnotice "github.com/wensboy/automan/backend/domain/notice"
 	"github.com/wensboy/automan/backend/internal/kits/configkit"
 	"github.com/wensboy/automan/backend/internal/kits/logkit"
 )
@@ -361,6 +362,7 @@ func (s *Service) Start(_ domaincontext.Context, ids []string) (StartResult, err
 		if err != nil {
 			s.fail("start", row.Name, err)
 			result.Failed = append(result.Failed, StartFailure{ID: row.ID, Name: row.Name, Reason: err.Error()})
+			s.notify(domainnotice.LevelError, "proxy", "Proxy start failed", row.Name+": "+err.Error())
 			continue
 		}
 
@@ -384,6 +386,7 @@ func (s *Service) Start(_ domaincontext.Context, ids []string) (StartResult, err
 			continue
 		}
 		s.index.claim(row.ID, req.BaseDir, req.Port, req.UIPort)
+		s.notify(domainnotice.LevelSuccess, "proxy", "Proxy started", row.Name)
 		s.info("proxy: started", logkit.F("id", row.ID), logkit.F("name", row.Name),
 			logkit.F("port", req.Port), logkit.F("uiport", req.UIPort), logkit.F("dir", req.BaseDir))
 		result.Items = append(result.Items, StartItem{
@@ -426,6 +429,7 @@ func (s *Service) Stop(_ domaincontext.Context, ids []string) error {
 		s.markStatus(row.ID, StatusStopped)
 		s.index.release(row.ID)
 		s.info("proxy: stopped", logkit.F("id", row.ID), logkit.F("name", row.Name))
+		s.notify(domainnotice.LevelSuccess, "proxy", "Proxy stopped", row.Name)
 	}
 	return firstErr
 }
