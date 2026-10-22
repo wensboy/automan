@@ -14,11 +14,12 @@ export interface CaptureTarget {
 
 /**
  * Input 是写入入参(创建/更新共用).
+ * Input 是创建/更新入参。**不含 status**: 状态由执行链路(Start/Stop)维护,
+ * 允许入参写状态会让"状态与事实不符"(见 docs/design/v23.md §22/§23)。
  */
 export interface Input {
     "name": string;
     "target": string;
-    "status": string;
     "rules": string;
     "description": string;
 }

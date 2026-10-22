@@ -1,11 +1,12 @@
 import React from "react"
 import ReactDOM from "react-dom/client"
-import { Toaster } from "sonner"
 
 import App from "@/App"
 import StaticProvider from "@/components/custom/share/provider/static-provider"
 import ThemeProvider from "@/components/custom/share/provider/theme-provider"
 import ThemeSync from "@/components/custom/share/provider/theme-sync"
+import ErrorBoundary from "@/components/custom/share/error-boundary"
+import ThemedToaster from "@/components/custom/share/themed-toaster"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { attachNoticeEvents, loadNotices } from "@/lib/notice"
 
@@ -22,8 +23,10 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
       <ThemeSync />
       <StaticProvider>
         <TooltipProvider>
-          <App />
-          <Toaster />
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>
+          <ThemedToaster />
         </TooltipProvider>
       </StaticProvider>
     </ThemeProvider>

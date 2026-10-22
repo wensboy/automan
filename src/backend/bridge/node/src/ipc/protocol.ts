@@ -1,11 +1,16 @@
-/** 协议常量与类型: 必须与 Go 侧 domain/bridge 逐字一致 (否则对端无法解码)。 */
-
-export const protocolVersion = 2;
+/**
+ * v3 线协议: 文本帧内容**直接是信封 JSON**(不再套 base64 帧), 见 docs/design/v23.md §4。
+ * 与 Go 侧 message.Envelope 字段逐字一致。
+ */
+export const protocolVersion = 3;
 
 export const kind = {
-  stream: 'stream',
-  event: 'event',
+  request: 'request',
+  response: 'response',
   error: 'error',
+  event: 'event',
+  /** 业务侧沿用的别名: Handler 返回对象里的占位, loop 会以事件发出(不再有线上的 stream 语义)。 */
+  stream: 'stream',
 } as const;
 
 export type Kind = (typeof kind)[keyof typeof kind];
@@ -16,28 +21,24 @@ export const name = {
   log: 'node.log',
 } as const;
 
-/** 帧: ws 文本帧的内容 (对应 Go 侧 ipc/frame.go)。 */
-export interface Frame {
-  id: string;
-  payload?: string;
-}
-
-/** 信封: payload 字节的 json (对应 Go 侧 bridge.Envelope)。 */
+/** 文本帧内容(信封)。 */
 export interface Envelope {
+  v: number;
   kind: Kind;
   name?: string;
-  data?: string;
+  id?: string;
+  data?: unknown;
 }
 
-/** 交给业务处理的一条消息 (对应 Go 侧 bridge.Packet)。 */
+/** 交给业务处理的一条消息。 */
 export interface Packet {
   id: string;
   kind: Kind;
   name: string;
-  data: Uint8Array;
+  data: unknown;
 }
 
-/** 业务要发出的一条消息 (对应 Go 侧 bridge.Outgoing)。 */
+/** 业务要发出的一条消息。 */
 export interface Outgoing {
   id?: string;
   kind: Kind;

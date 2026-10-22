@@ -1,6 +1,10 @@
 package bridge
 
-import "context"
+import (
+	"context"
+	"encoding/json"
+	"time"
+)
 
 // Kind 是消息类型 (业务层语义; 传输层只透传, 不解释).
 type Kind string
@@ -41,6 +45,12 @@ type Outgoing struct {
 	Data any
 }
 
+// Requester 是"请求-响应"能力(响应与请求按内部 ID 关联, 业务不需要自己配表)。
+type Requester interface {
+	// Request 发一条请求并等待响应; data 为响应负载(reason 失败时由 error 给出)。
+	Request(ctx context.Context, name string, data any, timeout time.Duration) (json.RawMessage, error)
+}
+
 // Sender 是出站能力.
 type Sender interface {
 	Send(ctx context.Context, msg Outgoing) error
@@ -71,7 +81,8 @@ const (
 	// NameNodeLog 是对端日志上行名 (kind=event).
 	NameNodeLog = "node.log"
 	// ProtocolVersion 是当前协议版本 (帧与协议语义变更时递增).
-	ProtocolVersion = 2
+	// v3: 信封直接放在文本帧里(不再套 base64 帧), 见 docs/design/v23.md
+	ProtocolVersion = 3
 )
 
 // NodeReady 是就绪通知载荷.

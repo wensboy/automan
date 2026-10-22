@@ -2,10 +2,12 @@ package proxy
 
 import (
 	stdctx "context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -34,7 +36,7 @@ func (f *fakeStarter) Start(_ stdctx.Context, req StartRequest) (StartInfo, erro
 	return info, nil
 }
 
-func (f *fakeStarter) Stop(_ stdctx.Context, proxyID string, _ time.Duration) error {
+func (f *fakeStarter) Stop(_ stdctx.Context, proxyID, _ string, _ time.Duration) error {
 	f.stopped = append(f.stopped, proxyID)
 	if f.err != nil {
 		return f.err
@@ -396,4 +398,60 @@ func TestRequiresWorkspace(t *testing.T) {
 	if page.Total != 0 || len(page.Items) != 0 {
 		t.Fatalf("无工作区时列表应为空, got %+v", page)
 	}
+}
+
+// 批量启动: 每次 Start 都通过 Requester 的请求-响应关联, 不依赖业务自己按 ID 配表。
+// (回归: 早先 node 回执走事件通道丢失 ID, 批量启动会逐一超时)
+func TestStartTwiceViaRequester(t *testing.T) {
+	requester := &fakeRequester{replies: []map[string]any{
+		{"proxyId": "p1", "pid": 11, "port": 9001, "uiport": 9002},
+		{"proxyId": "p2", "pid": 12, "port": 9003, "uiport": 9004},
+	}}
+	svc := New().WithStore(&fakeStore{total: 0}).WithLogger(&fakeLogger{}).WithBridge(requester)
+	svc.currentWorkspace = func() string { return "w-test" }
+	svc.now = func() time.Time { return time.UnixMilli(1700000000000) }
+	svc.root = t.TempDir()
+	svc.proxyRoot = svc.resolveBase("proxies")
+
+	store := &fakeStore{total: 0}
+	svc.store = store
+	store.row = &Proxy{ID: "p1", Name: "one", Status: StatusStopped, Rules: `{"host":"127.0.0.1","port":9001,"uiport":9002}`}
+	if _, err := svc.Start(nil, []string{"p1"}); err != nil {
+		t.Fatalf("Start(p1): %v", err)
+	}
+	store.row = &Proxy{ID: "p2", Name: "two", Status: StatusStopped, Rules: `{"host":"127.0.0.1","port":9003,"uiport":9004}`}
+	// 批量: 同一批里两行都启动
+	result, err := svc.Start(nil, []string{"p1", "p2"})
+	if err != nil {
+		t.Fatalf("Start(batch): %v", err)
+	}
+	if len(result.Items) != 2 || len(result.Failed) != 0 {
+		t.Fatalf("批量启动应全部成功, got items=%d failed=%+v", len(result.Items), result.Failed)
+	}
+	if requester.calls != 3 {
+		t.Fatalf("每次启动都应发一次请求, got %d", requester.calls)
+	}
+}
+
+// fakeRequester 按顺序返回预置回执。
+type fakeRequester struct {
+	replies []map[string]any
+	calls   int
+	mu      sync.Mutex
+}
+
+func (f *fakeRequester) Request(_ stdctx.Context, name string, _ any, _ time.Duration) (json.RawMessage, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls++
+	if name != "proxy.start" {
+		return json.RawMessage(`{}`), nil
+	}
+	var reply map[string]any
+	if len(f.replies) > 0 {
+		reply = f.replies[0]
+		f.replies = f.replies[1:]
+	}
+	raw, err := json.Marshal(reply)
+	return raw, err
 }

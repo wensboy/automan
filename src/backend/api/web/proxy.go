@@ -2,6 +2,8 @@
 package web
 
 import (
+	"fmt"
+
 	"github.com/wensboy/automan/backend/domain/context"
 	apperr "github.com/wensboy/automan/backend/internal/err"
 	"github.com/wensboy/automan/backend/internal/kits/srvkit"
@@ -73,7 +75,15 @@ func (s *ProxyService) Template() (string, error) {
 }
 
 // Start 批量启动代理(参数取自 sqlite, 让步后写回; 返回实际生效值)。
-func (s *ProxyService) Start(ids []string) (serviceproxy.StartResult, error) {
+//
+// 带 panic 兜底: 启停是会触碰进程/文件/网络的路径, 一旦在绑定层 panic, Wails 的
+// 进程会直接退出(dev 下表现为"窗口黑一下再重载")。这里把 panic 转成错误返回。
+func (s *ProxyService) Start(ids []string) (result serviceproxy.StartResult, err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("proxy start crashed: %v", recovered)
+		}
+	}()
 	svc, ok := srvkit.Of(s.ctx, serviceproxy.Key)
 	if !ok {
 		return serviceproxy.StartResult{}, apperr.New(apperr.CodeNotFound)
@@ -81,22 +91,18 @@ func (s *ProxyService) Start(ids []string) (serviceproxy.StartResult, error) {
 	return svc.Start(s.ctx, ids)
 }
 
-// Stop 批量停止代理(进程收尾由 node runtime 兜底)。
-func (s *ProxyService) Stop(ids []string) error {
+// Stop 批量停止代理(进程收尾由 node runtime 兜底)。panic 兜底同 Start。
+func (s *ProxyService) Stop(ids []string) (err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("proxy stop crashed: %v", recovered)
+		}
+	}()
 	svc, ok := srvkit.Of(s.ctx, serviceproxy.Key)
 	if !ok {
 		return apperr.New(apperr.CodeNotFound)
 	}
 	return svc.Stop(s.ctx, ids)
-}
-
-// SetStatus 批量改状态(工具栏启动/停止): 只改选中的、未删除且状态不同的行, 返回实际改动条数.
-func (s *ProxyService) SetStatus(ids []string, status string) (int, error) {
-	svc, ok := srvkit.Of(s.ctx, serviceproxy.Key)
-	if !ok {
-		return 0, apperr.New(apperr.CodeNotFound)
-	}
-	return svc.SetStatus(s.ctx, ids, status)
 }
 
 // Delete 逻辑删除代理.

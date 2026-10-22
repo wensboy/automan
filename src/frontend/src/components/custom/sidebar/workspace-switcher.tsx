@@ -59,7 +59,9 @@ export default function WorkspaceSwitcher() {
     })
   }, [userId, load, reset])
 
-  const current = items.find((item) => item.id === currentId) ?? items[0]
+  // 当前工作区只认后端返回的 currentId: **不回落第一个**
+  // (否则重启后展示一个"看起来选中"的工作区, 但后端并没有当前选择 -> 资源实际为空)
+  const current = items.find((item) => item.id === currentId)
 
   const handleCreate = async () => {
     const trimmed = name.trim()

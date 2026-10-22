@@ -1,55 +1,40 @@
-import type WebSocket from 'ws';
+import type { Peer } from './client.ts';
+import { type Outgoing, type Packet } from './protocol.ts';
 
-import { send } from './client.ts';
-import { decodeMessage } from './envelope.ts';
-import { decodeFrame } from './frame.ts';
-import { log } from './log.ts';
-import { kind, type Outgoing, type Packet } from './protocol.ts';
-
-/** 业务处理器: 返回要发出的消息; 不回则返回 null; 也可以是 Promise(异步启动等场景)。 */
+/** 业务处理器: 返回要发出的消息(事件); 不回则 null; 也可以是 Promise(异步启动等场景)。 */
 export type Handler = (packet: Packet) => Outgoing | null | Promise<Outgoing | null>;
 
-/** 单读循环: 收帧 -> 解信封 -> 按 name 分派; 未注册 name 丢弃 (与 Go 侧一致)。 */
-export function startLoop(ws: WebSocket, handlers: Record<string, Handler>): void {
-  ws.on('message', (data: WebSocket.RawData) => {
-    let packet: Packet;
-    try {
-      const frame = decodeFrame(data.toString());
-      packet = decodeMessage(frame.id, frame.payload);
-    } catch (err) {
-      log(ws, 'warn', 'bridge: decode failed', { err: String(err) });
-      return;
-    }
-
-    const handler = handlers[packet.name];
-    if (handler === undefined) {
-      log(ws, 'warn', 'bridge: message dropped', { reason: 'unregistered-name', name: packet.name });
-      return;
-    }
-
-    const respond = (reply: Outgoing | null) => {
-      if (reply !== null) send(ws, reply);
-    };
-    const fail = (err: unknown) => {
-      log(ws, 'error', 'bridge: handler failed', { name: packet.name, err: String(err) });
-      send(ws, {
-        id: packet.id,
-        kind: kind.error,
-        name: packet.name,
-        data: String(err),
-      });
-    };
-
-    try {
-      const result = handler(packet);
-      // 异步处理器(proxy.start 等)在此等待, 但**不阻塞**后续消息的分发
-      if (result instanceof Promise) {
-        void result.then(respond).catch(fail);
-      } else {
-        respond(result);
-      }
-    } catch (err) {
-      fail(err);
-    }
-  });
+/**
+ * 单读循环: 按 name 把入站消息交给处理器。
+ * 约定: 处理结果作为**事件**发出(与旧 stream 语义一致, 不自动关联请求 ID);
+ *       未注册的 name 直接丢弃, 与 Go 侧一致。
+ */
+export function startLoop(peer: Peer, handlers: Record<string, Handler>): void {
+  for (const [handlerName, handler] of Object.entries(handlers)) {
+    peer.on(handlerName, (env) => {
+      const packet: Packet = {
+        id: env.id ?? '',
+        kind: env.kind,
+        name: env.name ?? handlerName,
+        data: env.data,
+      };
+      Promise.resolve(handler(packet))
+        .then((reply) => {
+          if (reply === null || reply === undefined) return;
+          if (env.kind === 'request' && env.id) {
+            // 请求: 回 response(关联 ID), 由父进程的 Request 等待
+            peer.respond(env.id, reply.name ?? packet.name, reply.data);
+            return;
+          }
+          peer.notify(reply.name, reply.data);
+        })
+        .catch((err: unknown) => {
+          if (env.kind === 'request' && env.id) {
+            peer.fail(env.id, packet.name, String(err));
+            return;
+          }
+          peer.notify(packet.name, { error: String(err) });
+        });
+    });
+  }
 }

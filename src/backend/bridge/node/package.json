@@ -5,12 +5,13 @@
   "version": "0.0.1",
   "description": "Automan Node Core - node运行时核心",
   "scripts": {
-    "build": "node scripts/vendor-whistle.mjs && node esbuild.config.ts",
+    "build": "node esbuild.config.ts && node scripts/copy-runtime.mjs",
     "check": "tsc --noEmit",
     "start": "node dist/index.js",
     "all": "pnpm run build && pnpm run check"
   },
   "dependencies": {
+    "pfork": "^0.6.3",
     "whistle": "^2.10.11",
     "ws": "^8.18.0"
   },

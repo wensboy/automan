@@ -64,6 +64,17 @@ tasks:
     cmds:
       - task: common:run:docker
 
+  # 手工新增: node 桥接子进程构建(产物: backend/bridge/node/dist, 由 Go 内嵌)
+  node:build:
+    summary: Builds the node bridge child process (esbuild bundle + runtime deps)
+    cmds:
+      - task: common:node:build
+
+  node:check:
+    summary: Type-checks the node bridge child process
+    cmds:
+      - task: common:node:check
+
   # 手工新增: 项目自身的架构自检 (domain / internal / engine 三权边界)
   lint:arch:
     summary: Checks the domain/internal/engine boundaries (docs/design/v10.md)

@@ -3,7 +3,6 @@ module github.com/wensboy/automan
 go 1.25.0
 
 require (
-	github.com/coder/websocket v1.8.14
 	github.com/golang-migrate/migrate/v4 v4.18.3
 	github.com/jellydator/ttlcache/v3 v3.4.1
 	github.com/jmoiron/sqlx v1.4.0
@@ -15,6 +14,7 @@ require (
 
 require (
 	github.com/adrg/xdg v0.5.3 // indirect
+	github.com/coder/websocket v1.8.14 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/godbus/dbus/v5 v5.2.2 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect

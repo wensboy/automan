@@ -1,5 +1,5 @@
 // Package bridge 实现桥接引擎: peer 生命周期编排 + 业务处理 + 子进程编排.
-// 传输 (帧/连接/心跳) 归 internal/ipc; 业务负载编解码归本包与 internal/kits/bridgekit.
+// 传输/帧/消息分三层, 见 engine/bridge/{transport,frame,message}(docs/design/v23.md).
 package bridge
 
 import (
@@ -18,8 +18,9 @@ import (
 	"github.com/wensboy/automan/backend/domain/event"
 	domainlog "github.com/wensboy/automan/backend/domain/log"
 	domainstore "github.com/wensboy/automan/backend/domain/store"
+	"github.com/wensboy/automan/backend/engine/bridge/message"
+	"github.com/wensboy/automan/backend/engine/bridge/transport"
 	"github.com/wensboy/automan/backend/internal/fallback"
-	"github.com/wensboy/automan/backend/internal/ipc"
 	"github.com/wensboy/automan/backend/internal/kits/bridgekit"
 	"github.com/wensboy/automan/backend/internal/kits/configkit"
 	"github.com/wensboy/automan/backend/internal/kits/enginekit"
@@ -85,6 +86,12 @@ func WithRestart(policy string, max int) Option {
 // 未显式配置启动指令时, 引擎会把它落到运行目录并据此拉起子进程。
 func WithAsset(asset fs.FS) Option { return func(e *Engine) { e.asset = asset } }
 
+// handlerEntry 是一个入站处理器。
+type handlerEntry struct {
+	fn         domainbridge.Handler
+	concurrent bool
+}
+
 // Engine 是桥接引擎: 编排 peer 生命周期与子进程, 并把业务消息交给注册的处理器.
 type Engine struct {
 	// 参数 (option)
@@ -122,8 +129,8 @@ type Engine struct {
 	runCtx  stdctx.Context
 	cancel  stdctx.CancelFunc
 	enabled bool
-	server  *ipc.Server
-	peer    domainbridge.Peer
+	server  *transport.Listener
+	peer    *message.Peer
 	child   *childProcess
 }
 
@@ -177,7 +184,6 @@ func (e *Engine) Init(ctx context.Context) error {
 		return fmt.Errorf("bridge: unknown payload codec %q", e.codecName)
 	}
 	e.codec = codec
-	e.registerBuiltin()
 	return nil
 }
 
@@ -225,7 +231,7 @@ func (e *Engine) Stop(context.Context) error {
 	// 先终止子进程: supervise 阻塞在 Wait 上, 不先杀它会一直等下去.
 	e.stopProcess()
 	if peer := e.currentPeer(); peer != nil {
-		_ = peer.Close()
+		peer.Close(stdctx.Background(), "engine stop")
 	}
 	// 有界等待内部协程 (子进程极端情况下可能杀不掉, 也不能把停机挂死).
 	if !waitGroup(&e.wg, stopGrace) {
@@ -237,61 +243,8 @@ func (e *Engine) Stop(context.Context) error {
 }
 
 // listen 创建监听面 (peer 生命周期归引擎, 由 ipc 执行).
-func (e *Engine) listen() error {
-	server, err := ipc.Listen(
-		ipc.WithPath(e.sock),
-		ipc.WithStore(e.store),
-		ipc.WithRooter(e.rooter),
-		ipc.WithMaxMessageBytes(e.maxMessageBytes),
-		ipc.WithUpgradeTimeout(e.handshakeTimeout),
-		ipc.WithHeartbeat(e.heartbeat, e.heartbeatGrace),
-	)
-	if err != nil {
-		return err
-	}
-	e.mu.Lock()
-	e.server = server
-	e.mu.Unlock()
-	e.logInfo("bridge: listening",
-		logkit.F("sock", server.Addr()),
-		logkit.F("codec", e.codecName),
-		logkit.F("command", e.command))
-	return nil
-}
 
 // rebind 重绑监听 (幂等): 关闭旧监听 -> 重新 Listen.
-func (e *Engine) rebind() error {
-	e.closeServer()
-	return e.listen()
-}
-
-func (e *Engine) closeServer() {
-	e.mu.Lock()
-	server := e.server
-	e.server = nil
-	e.mu.Unlock()
-	if server != nil {
-		_ = server.Close()
-	}
-}
-
-func (e *Engine) currentServer() *ipc.Server {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	return e.server
-}
-
-func (e *Engine) currentPeer() domainbridge.Peer {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	return e.peer
-}
-
-func (e *Engine) setPeer(peer domainbridge.Peer) {
-	e.mu.Lock()
-	e.peer = peer
-	e.mu.Unlock()
-}
 
 func (e *Engine) currentChild() *childProcess {
 	e.mu.Lock()

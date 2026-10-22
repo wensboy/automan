@@ -21,14 +21,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import {
-  proxyApplications,
-  proxyStatusActions,
-  type ProxyAction,
-  type ProxyApplication,
-} from "@/mock/proxies"
 import { useStatic, staticValue } from "@/components/custom/share/provider/static-provider"
-import { toStatus, type Proxy, type ProxyStatus } from "@/components/custom/proxy/model"
+import {
+  proxyStatusActions,
+  toStatus,
+  type Proxy,
+  type ProxyAction,
+  type ProxyStatus,
+} from "@/components/custom/proxy/model"
 import { formatDateTime } from "@/lib/format"
 
 /** 状态 -> 字体色 (底色统一 bg-secondary, 随主题明暗变化; 颜色来自 index.css 的 --status-* token)。 */
@@ -52,7 +52,8 @@ const frozenClass = "sticky right-0 z-10 bg-background"
 /**
  * 代理数据表: 多选 / 名称 / 目标 / 状态 / 更新时间 + 冻结的操作列。
  * 容器尺寸固定, 行数超出时表体滚动; 列超出时其余列横向滚动, 表头与操作列保持可见。
- * 行操作菜单: [Edit / Inspect / Delete] + 二级 [Status] / [Application]。
+ * 行操作菜单: [Edit / Inspect / Delete] + 二级 [Status]。
+ * (Application 只做 UI 提示、没有后端动作, 已移除 —— 见 docs/design/v23.md §24)
  */
 export default function ProxyTable({
   rows,
@@ -63,7 +64,6 @@ export default function ProxyTable({
   onInspect,
   onDelete,
   onStatus,
-  onApplication,
 }: {
   rows: Proxy[]
   selectedIds: Set<string>
@@ -73,7 +73,6 @@ export default function ProxyTable({
   onInspect: (row: Proxy) => void
   onDelete: (row: Proxy) => void
   onStatus: (row: Proxy, action: ProxyAction) => void
-  onApplication: (row: Proxy, application: ProxyApplication) => void
 }) {
   const { Value } = useStatic()
   const allSelected = rows.length > 0 && rows.every((row) => selectedIds.has(row.id))
@@ -168,20 +167,6 @@ export default function ProxyTable({
                             onSelect={() => onStatus(row, action.value)}
                           >
                             {staticValue(`contentArea.proxy.actionLabel.${action.value}`) as string}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuSubContent>
-                    </DropdownMenuSub>
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger>{staticValue("contentArea.proxy.action.application")}</DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent>
-                        {proxyApplications.map((app) => (
-                          <DropdownMenuItem
-                            key={app.value}
-                            onSelect={() => onApplication(row, app.value)}
-                          >
-                            <app.icon />
-                            <span>{app.label}</span>
                           </DropdownMenuItem>
                         ))}
                       </DropdownMenuSubContent>

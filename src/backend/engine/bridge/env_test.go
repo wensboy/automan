@@ -16,13 +16,13 @@ func TestExpandEnvDevRoot(t *testing.T) {
 
 	// go.mod 一定存在: 既验证解析, 也验证存在性检查通过
 	got := expandEnv([]string{
-		"WHISTLE_BIN=${AUTOMAN_ROOT}/go.mod",
+		"SAMPLE_BIN=${AUTOMAN_ROOT}/go.mod",
 		"PLAIN=1",
 	})
 	if len(got) != 2 {
 		t.Fatalf("应保留两条, got %v", got)
 	}
-	want := "WHISTLE_BIN=" + filepath.Join(root, "go.mod")
+	want := "SAMPLE_BIN=" + filepath.Join(root, "go.mod")
 	if got[0] != want {
 		t.Fatalf("开发根解析异常:\n got=%q\nwant=%q", got[0], want)
 	}
@@ -54,7 +54,7 @@ func TestExpandEnvDropsMalformedAndExpandsHome(t *testing.T) {
 
 // 日志只记键名, 不泄露值。
 func TestEnvKeysOnlyNames(t *testing.T) {
-	if got := envKeys([]string{"WHISTLE_BIN=/secret/path", "PLAIN=1"}); got != "WHISTLE_BIN,PLAIN" {
+	if got := envKeys([]string{"SAMPLE_BIN=/secret/path", "PLAIN=1"}); got != "SAMPLE_BIN,PLAIN" {
 		t.Fatalf("应只输出键名, got %q", got)
 	}
 	if got := envKeys(nil); got != "" {

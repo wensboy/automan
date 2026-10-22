@@ -17,7 +17,7 @@
         "args": [],
         "dir": "",
         "env": [
-            "WHISTLE_BIN=${AUTOMAN_ROOT}/backend/bridge/node/node_modules/whistle/bin/whistle.js"
+            "NODE_PATH=${AUTOMAN_ROOT}/backend/bridge/node/node_modules"
         ],
         "services": {
             "proxy": {

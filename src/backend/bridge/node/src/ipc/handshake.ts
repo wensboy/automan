@@ -1,8 +1,5 @@
-import type WebSocket from 'ws';
-
-import { nextPacket, send } from './client.ts';
-import { decodeData } from './envelope.ts';
-import { kind, name, protocolVersion } from './protocol.ts';
+import type { Peer } from './client.ts';
+import { name, protocolVersion } from './protocol.ts';
 
 export interface HandshakeOptions {
   daemon: string;
@@ -16,31 +13,19 @@ interface HandshakeResult {
   version: number;
 }
 
-/** 客户端侧握手: 进入消息循环前的一次性交换 (codec 仅作断言, 不协商)。 */
-export async function handshake(ws: WebSocket, options: HandshakeOptions): Promise<HandshakeResult> {
-  send(ws, {
-    id: name.handshake,
-    kind: kind.stream,
-    name: name.handshake,
-    data: {
-      daemon: options.daemon,
-      codec: options.codec,
-      version: protocolVersion,
-      token: options.token,
-    },
-  });
-
-  const reply = await nextPacket(ws);
-  if (reply.kind === kind.error) {
-    throw new Error(`handshake rejected: ${decodeData<string>(reply)}`);
-  }
-  if (reply.name !== name.handshake) {
-    throw new Error(`unexpected handshake reply: ${reply.name}`);
-  }
-
-  const result = decodeData<HandshakeResult>(reply);
-  if (result.version !== protocolVersion) {
-    throw new Error(`version mismatch: want ${protocolVersion}, got ${result.version}`);
+/**
+ * 客户端握手: 用 **request/response** 语义(v3), 失败即抛错。
+ * 版本/编码不匹配时父进程会回 error 帧, 这里原样上抛。
+ */
+export async function handshake(peer: Peer, options: HandshakeOptions): Promise<HandshakeResult> {
+  const env = await peer.request(
+    name.handshake,
+    { daemon: options.daemon, codec: options.codec, version: protocolVersion, token: options.token },
+    5000,
+  );
+  const result = env.data as HandshakeResult | undefined;
+  if (!result || result.version !== protocolVersion) {
+    throw new Error(`version mismatch: want ${protocolVersion}, got ${result?.version}`);
   }
   if (result.codec !== options.codec) {
     throw new Error(`codec mismatch: want ${options.codec}, got ${result.codec}`);

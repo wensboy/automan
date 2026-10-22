@@ -147,7 +147,7 @@ func registerServices(deps serviceDeps) (func(), error) {
 		WithCurrentWorkspace(func() string { return workspaceSrv.Current(deps.runtime) })
 	// 执行链路: 适配与配表逻辑都在 service/proxy 内部(见 v19 §13)
 	if engines.bridgeOK {
-		proxySrv = proxySrv.WithBridge(engines.bridge, engines.bridge)
+		proxySrv = proxySrv.WithBridge(engines.bridge)
 	}
 	// 启动期保证代理 basedir 存在(它是 node 侧 spawn 的 cwd, 也是 whistle storage 的父目录)
 	if err := proxySrv.EnsureBaseDir(); err != nil {

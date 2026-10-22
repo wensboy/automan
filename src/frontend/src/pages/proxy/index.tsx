@@ -9,16 +9,20 @@ import {
   Create,
   Delete,
   List,
-  SetStatus,
   Start,
   Stop,
   Template,
   Update,
 } from "../../../bindings/github.com/wensboy/automan/backend/api/web/proxyservice"
-import type { ProxyAction, ProxyApplication } from "@/mock/proxies"
 import { staticValue } from "@/components/custom/share/provider/static-provider"
 import { useWorkspaceStore } from "@/store/workspace"
-import { toPayload, type Input, type Proxy, type ProxyStatus, type ProxyStatusFilter } from "@/components/custom/proxy/model"
+import {
+  toPayload,
+  type Input,
+  type Proxy,
+  type ProxyAction,
+  type ProxyStatusFilter,
+} from "@/components/custom/proxy/model"
 
 /** 每页行数可选值 (页脚的选择器)。 */
 const PAGE_SIZES = [5, 10, 20]
@@ -182,8 +186,7 @@ export default function Proxy() {
   }
 
   // 启动: 参数以 sqlite 为准, 让步结果由后端写回并返回实际生效值
-  const startSelected = async () => {
-    const ids = Array.from(selectedIds)
+  const startIds = async (ids: string[]) => {
     if (ids.length === 0) {
       toast.error(staticValue("contentArea.proxy.noSelection") ?? "")
       return
@@ -204,8 +207,7 @@ export default function Proxy() {
     }
   }
 
-  const stopSelected = async () => {
-    const ids = Array.from(selectedIds)
+  const stopIds = async (ids: string[]) => {
     if (ids.length === 0) {
       toast.error(staticValue("contentArea.proxy.noSelection") ?? "")
       return
@@ -219,34 +221,23 @@ export default function Proxy() {
     }
   }
 
-  // 批量改状态: 后端只改"状态与目标不同"的行并返回实际条数。
-  // 当前只落库 —— 真实启停(whistle/libretto)属执行链路, 见 v17 §11。
-  const changeStatus = async (next: ProxyStatus, ids: string[]) => {
-    if (ids.length === 0) {
-      toast.error(staticValue("contentArea.proxy.noSelection") ?? "")
-      return
-    }
-    try {
-      const changed = await SetStatus(ids, next)
-      toast.success(
-        changed > 0
-          ? `${staticValue("contentArea.proxy.statusChanged") ?? ""}${changed}`
-          : (staticValue("contentArea.proxy.statusUnchanged") ?? ""),
-      )
-      await reload()
-    } catch (error) {
-      toast.error(messageOf(error))
-    }
-  }
-
-  // 行菜单的状态动作: start/restart/reload -> running, stop -> stopped(只作用于该行)
+  // 行菜单的状态动作: **走真实执行链**(Start/Stop), 不再只写库。
+  // 早先这里调 SetStatus(只改 status 列): 表现为"状态变了但代理没起来/没销毁"(见 v23 §22/§23)。
   const applyStatus = (row: Proxy, action: ProxyAction) => {
-    void changeStatus(action === "stop" ? "stopped" : "running", [row.id])
-  }
-
-  // application 与 proxy 解耦(v17 §10/J): 服务层不承载它, 因此这里只做 UI 反馈, 不再改行数据
-  const applyApplication = (row: Proxy, application: ProxyApplication) => {
-    toast.success(`${staticValue(`contentArea.proxy.applicationLabel.${application}`) as string} for ${row.name}`)
+    void (async () => {
+      if (action === "stop") {
+        await stopIds([row.id])
+        return
+      }
+      if (action === "restart") {
+        // restart 语义: 先真正停止再启动(否则 Start 幂等, 等于什么都没做)
+        await stopIds([row.id])
+        await startIds([row.id])
+        return
+      }
+      // start / reload: 统一走启动(start 幂等; reload 不额外热重载配置)
+      await startIds([row.id])
+    })()
   }
 
   const refresh = async () => {
@@ -280,8 +271,8 @@ export default function Proxy() {
           setPage(1)
         }}
         // 启动: 选中里状态非 running 的全部置为 running; 停止: 非 stopped 的全部置为 stopped
-        onStart={() => void startSelected()}
-        onStop={() => void stopSelected()}
+        onStart={() => void startIds(Array.from(selectedIds))}
+        onStop={() => void stopIds(Array.from(selectedIds))}
       />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
         <ProxyTable
@@ -293,7 +284,6 @@ export default function Proxy() {
           onInspect={(row) => toast(`${staticValue("contentArea.proxy.inspected") ?? ""}${row.name}`)}
           onDelete={(row) => void removeRow(row)}
           onStatus={applyStatus}
-          onApplication={applyApplication}
         />
         <ProxyFooter
           rangeStart={rangeStart}

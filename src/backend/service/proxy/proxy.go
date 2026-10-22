@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io/fs"
 	"strings"
+	"sync"
 	"time"
 
 	domainconfig "github.com/wensboy/automan/backend/domain/config"
@@ -59,10 +60,11 @@ type Proxy struct {
 }
 
 // Input 是写入入参(创建/更新共用).
+// Input 是创建/更新入参。**不含 status**: 状态由执行链路(Start/Stop)维护,
+// 允许入参写状态会让"状态与事实不符"(见 docs/design/v23.md §22/§23)。
 type Input struct {
 	Name        string `json:"name"`
 	Target      string `json:"target"`
-	Status      string `json:"status"`
 	Rules       string `json:"rules"`
 	Description string `json:"description"`
 }
@@ -106,6 +108,10 @@ type Service struct {
 	stopTimeout      time.Duration
 	startWait        time.Duration
 	index            *runtimeIndex
+	// opMu 串行化启停: header 批量与行菜单可能**同时**发起(不同入口),
+	// 并发会让同一实例被"启动中又被停止"或重复 claim, 极端情况下进程层面出错。
+	// 见 docs/design/v23.md §26。
+	opMu sync.Mutex
 }
 
 // New 创建代理服务.
@@ -187,7 +193,7 @@ func (s *Service) Create(_ domaincontext.Context, input Input) (Proxy, error) {
 	id := s.newID()
 	columns := "id, name, target, status, rules, description, created_at, updated_at, deleted_at"
 	values := "?, ?, ?, ?, ?, ?, ?, ?, 0"
-	args := []any{id, normalized.Name, normalized.Target, normalized.Status, normalized.Rules, normalized.Description, now, now}
+	args := []any{id, normalized.Name, normalized.Target, StatusStopped, normalized.Rules, normalized.Description, now, now}
 	if uid := s.userID(); uid != "" {
 		columns += ", user_id"
 		values += ", ?"
@@ -231,8 +237,8 @@ func (s *Service) Update(_ domaincontext.Context, id string, input Input) (Proxy
 
 	now := s.now().UnixMilli()
 	where, whereArgs := s.userScope("id = ? AND deleted_at = 0")
-	updateArgs := append([]any{normalized.Name, normalized.Target, normalized.Status, normalized.Rules, normalized.Description, now, id}, whereArgs...)
-	_, err = s.exec(`UPDATE proxies SET name = ?, target = ?, status = ?, rules = ?, description = ?, updated_at = ?
+	updateArgs := append([]any{normalized.Name, normalized.Target, normalized.Rules, normalized.Description, now, id}, whereArgs...)
+	_, err = s.exec(`UPDATE proxies SET name = ?, target = ?, rules = ?, description = ?, updated_at = ?
         WHERE `+where, updateArgs...)
 	if err != nil {
 		s.fail("update", id, err)
@@ -247,56 +253,6 @@ func (s *Service) Update(_ domaincontext.Context, id string, input Input) (Proxy
 	s.info("proxy: updated", logkit.F("id", id), logkit.F("name", normalized.Name),
 		logkit.F("fields", strings.Join(changedFields(current, normalized), ",")))
 	return s.mustGet(id)
-}
-
-// SetStatus 批量改状态: 只作用于选中的、未删除的行, 已处于目标状态的行不动, 返回实际改动条数。
-// 工具栏"启动/停止"用: 启动 = status(running)、停止 = status(stopped)。
-// 当前只落库 —— 真实的启停(whistle/libretto)属执行链路, 见 docs/design/v17.md §11。
-func (s *Service) SetStatus(_ domaincontext.Context, ids []string, status string) (int, error) {
-	target := strings.TrimSpace(status)
-	if !validStatus(target) {
-		return 0, invalid(`status must be one of running|stopped|error|exception, got %q`, target)
-	}
-	cleaned := make([]string, 0, len(ids))
-	seen := make(map[string]struct{}, len(ids))
-	for _, id := range ids {
-		trimmed := strings.TrimSpace(id)
-		if trimmed == "" {
-			continue
-		}
-		if _, ok := seen[trimmed]; ok {
-			continue
-		}
-		seen[trimmed] = struct{}{}
-		cleaned = append(cleaned, trimmed)
-	}
-	if len(cleaned) == 0 {
-		return 0, invalid("no proxy selected")
-	}
-
-	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(cleaned)), ",")
-	args := make([]any, 0, len(cleaned)+4)
-	args = append(args, target, s.now().UnixMilli(), target)
-	for _, id := range cleaned {
-		args = append(args, id)
-	}
-	suffix := ""
-	if uid := s.userID(); uid != "" {
-		suffix = " AND user_id = ?"
-		args = append(args, uid)
-	}
-	result, err := s.exec(`UPDATE proxies SET status = ?, updated_at = ?
-        WHERE deleted_at = 0 AND status <> ? AND id IN (`+placeholders+`)`+suffix, args...)
-	if err != nil {
-		s.fail("setStatus", target, err)
-		return 0, err
-	}
-	if result.RowsAffected == 0 {
-		s.info("proxy: status unchanged", logkit.F("status", target), logkit.F("count", 0))
-		return 0, nil
-	}
-	s.info("proxy: status changed", logkit.F("status", target), logkit.F("count", result.RowsAffected))
-	return int(result.RowsAffected), nil
 }
 
 // Delete 逻辑删除(置 deleted_at), 之后同名可重建.
@@ -364,16 +320,12 @@ func buildCountFilter(query Query) (string, []any) {
 	return strings.Join(where, " AND "), args
 }
 
-// validate 归一化并校验入参(空 status 视为 stopped)。
+// validate 归一化并校验入参(status 不在入参内: 由执行链路维护)。
 func validate(input Input) (Input, error) {
 	out := Input{
 		Name:        strings.TrimSpace(input.Name),
-		Status:      strings.TrimSpace(input.Status),
 		Rules:       input.Rules,
 		Description: input.Description,
-	}
-	if out.Status == "" {
-		out.Status = StatusStopped
 	}
 	if out.Name == "" || len(out.Name) > maxNameLen {
 		return Input{}, invalid(`name must be 1..%d chars`, maxNameLen)
@@ -382,9 +334,6 @@ func validate(input Input) (Input, error) {
 	out.Target = deriveTarget(out.Rules)
 	if len(out.Target) > maxTargetLen {
 		return Input{}, invalid(`target exceeds %d chars (check rules.host/port)`, maxTargetLen)
-	}
-	if !validStatus(out.Status) {
-		return Input{}, invalid(`status must be one of running|stopped|error|exception, got %q`, out.Status)
 	}
 	if len(out.Rules) > maxTextLen {
 		return Input{}, invalid(`rules exceeds %d bytes`, maxTextLen)
@@ -421,15 +370,6 @@ func targetFrom(host string, port int) string {
 	return fmt.Sprintf("%s:%d", host, port)
 }
 
-func validStatus(status string) bool {
-	switch status {
-	case StatusRunning, StatusStopped, StatusError, StatusException:
-		return true
-	default:
-		return false
-	}
-}
-
 // changedFields 列出与当前行相比发生变化的列名(供操作日志)。
 func changedFields(current Proxy, next Input) []string {
 	fields := make([]string, 0, 5)
@@ -438,9 +378,6 @@ func changedFields(current Proxy, next Input) []string {
 	}
 	if current.Target != next.Target {
 		fields = append(fields, "target")
-	}
-	if current.Status != next.Status {
-		fields = append(fields, "status")
 	}
 	if current.Rules != next.Rules {
 		fields = append(fields, "rules")

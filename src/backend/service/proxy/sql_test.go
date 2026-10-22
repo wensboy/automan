@@ -108,10 +108,12 @@ func TestServiceAgainstRealSQLite(t *testing.T) {
 		t.Fatalf("重复名应被拒绝, got %v", err)
 	}
 
-	second, err := svc.Create(nil, Input{Name: "stage-api", Target: "10.0.20.5:8080", Status: StatusRunning})
+	second, err := svc.Create(nil, Input{Name: "stage-api", Target: "10.0.20.5:8080"})
 	if err != nil {
 		t.Fatalf("Create second: %v", err)
 	}
+	// 状态只能由执行链路写(入参已不含 status): 这里显式模拟"第二个代理启动成功"
+	svc.markStatus(second.ID, StatusRunning)
 
 	// 列表 + 搜索 + 状态统计
 	page, err := svc.List(nil, Query{})
@@ -141,15 +143,18 @@ func TestServiceAgainstRealSQLite(t *testing.T) {
 		t.Fatalf("分页异常: %+v", paged)
 	}
 
-	// 更新: 改状态与规则, 更新时间应当推进
+	// 更新: 只改名字与规则(status 不在入参内, 保持原样; target 由 rules 派生)
 	updated, err := svc.Update(nil, created.ID, Input{
-		Name: "local-dev", Target: "127.0.0.1:8899", Status: StatusRunning, Rules: `{"port":9000}`,
+		Name: "local-dev", Rules: `{"host":"127.0.0.1","port":9000}`,
 	})
 	if err != nil {
 		t.Fatalf("Update: %v", err)
 	}
-	if updated.Status != StatusRunning || updated.Rules != `{"port":9000}` {
+	if updated.Status != StatusStopped || updated.Rules != `{"host":"127.0.0.1","port":9000}` {
 		t.Fatalf("更新结果异常: %+v", updated)
+	}
+	if updated.Target != "127.0.0.1:9000" {
+		t.Fatalf("target 应由 rules 派生, got %q", updated.Target)
 	}
 
 	// 逻辑删除: 列表里消失, 同名可以重建
@@ -171,23 +176,15 @@ func TestServiceAgainstRealSQLite(t *testing.T) {
 		t.Fatalf("逻辑删除后同名应可重建: %v", err)
 	}
 
-	// 批量改状态(动态 IN 占位符 + 只改状态不同的行)
-	changed, err := svc.SetStatus(nil, []string{created.ID, recreated.ID}, StatusRunning)
-	if err != nil {
-		t.Fatalf("SetStatus: %v", err)
-	}
-	if changed != 1 { // created 已是 running, recreated 是 stopped
-		t.Fatalf("应只改动 1 条(状态不同的那条), got %d", changed)
-	}
-	again, err := svc.SetStatus(nil, []string{recreated.ID}, StatusRunning)
-	if err != nil {
-		t.Fatalf("SetStatus 重复调用: %v", err)
-	}
-	if again != 0 {
-		t.Fatalf("已处于目标状态不应再改, got %d", again)
+	// 状态写入(执行链路内部入口; 对外不再暴露"只改库"的批量接口, 见 v23 §22)
+	svc.markStatus(recreated.ID, StatusRunning)
+	if got, err := svc.Get(nil, recreated.ID); err != nil || got.Status != StatusRunning {
+		t.Fatalf("状态应写为 running, got %+v err=%v", got, err)
 	}
 
-	// 状态统计不受状态过滤影响: 过滤 running 时仍能看到 stopped 的计数
+	// 让两条都处于 running(状态统计口径: 过滤命中数 + 全量计数)
+	svc.markStatus(created.ID, StatusRunning)
+
 	byStatus, err := svc.List(nil, Query{Status: StatusRunning})
 	if err != nil {
 		t.Fatalf("List by status: %v", err)
@@ -208,12 +205,9 @@ func TestServiceAgainstRealSQLite(t *testing.T) {
 		}
 		ids = append(ids, row.ID)
 	}
-	bulk, err := svc.SetStatus(nil, ids, StatusException)
-	if err != nil {
-		t.Fatalf("SetStatus bulk: %v", err)
-	}
-	if bulk != 8 {
-		t.Fatalf("批量应改动 8 条, got %d", bulk)
+	// 批量状态写入走执行链路的内部入口(逐条); 对外不再暴露"只改库"的 SetStatus
+	for _, id := range ids {
+		svc.markStatus(id, StatusException)
 	}
 	exceptions, err := svc.List(nil, Query{Status: StatusException})
 	if err != nil {

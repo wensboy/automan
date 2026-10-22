@@ -27,7 +27,7 @@ type Starter interface {
 	// Start 发起启动并等待 node 回 proxy.started / proxy.failed。
 	Start(ctx stdctx.Context, req StartRequest) (StartInfo, error)
 	// Stop 发起停止并等待回执; timeout 为 node 侧的强杀阈值(来自 bridge.json)。
-	Stop(ctx stdctx.Context, proxyID string, timeout time.Duration) error
+	Stop(ctx stdctx.Context, proxyID, dir string, timeout time.Duration) error
 }
 
 // StartRequest 是传给 node 的启动参数(键名与 whistle 启动参数一一对应)。
@@ -318,7 +318,6 @@ type rules struct {
 	Host      string `json:"host"`
 	Port      any    `json:"port"`
 	UIPort    any    `json:"uiport"`
-	Storage   string `json:"storage"`
 	Timeout   any    `json:"timeout"`
 	DNSServer string `json:"dnsServer"`
 }
@@ -331,6 +330,9 @@ func (s *Service) Start(_ domaincontext.Context, ids []string) (StartResult, err
 	if err := s.requireWorkspace(); err != nil {
 		return StartResult{}, err
 	}
+	// 与 Stop 互斥: header 与行菜单可能同时触发, 必须串行(见 v23 §26)
+	s.opMu.Lock()
+	defer s.opMu.Unlock()
 	result := StartResult{Items: []StartItem{}, Failed: []StartFailure{}}
 	ctx, cancel := stdctx.WithTimeout(stdctx.Background(), s.startTimeout())
 	defer cancel()
@@ -399,6 +401,9 @@ func (s *Service) Stop(_ domaincontext.Context, ids []string) error {
 	if s.starter == nil {
 		return invalid("proxy starter not configured")
 	}
+	// 与 Start 互斥: 避免"启动进行中又被停止"落在中间态(见 v23 §26)
+	s.opMu.Lock()
+	defer s.opMu.Unlock()
 	ctx, cancel := stdctx.WithTimeout(stdctx.Background(), s.startTimeout())
 	defer cancel()
 
@@ -411,7 +416,7 @@ func (s *Service) Stop(_ domaincontext.Context, ids []string) error {
 			}
 			continue
 		}
-		if err := s.starter.Stop(ctx, row.ID, s.stopTimeout); err != nil {
+		if err := s.starter.Stop(ctx, row.ID, s.baseDirOf(row.Name), s.stopTimeout); err != nil {
 			s.fail("stop", row.Name, err)
 			if firstErr == nil {
 				firstErr = err

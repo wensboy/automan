@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      pfork:
+        specifier: ^0.6.3
+        version: 0.6.3
       whistle:
         specifier: ^2.10.11
         version: 2.10.11

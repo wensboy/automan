@@ -69,6 +69,21 @@ tasks:
     cmds:
       - yarn install
 
+  # 手工新增: node 桥接子进程构建(产物 backend/bridge/node/dist, 由 Go 内嵌)
+  node:build:
+    summary: Builds the node bridge child process (esbuild bundle + runtime deps)
+    # 绝对基准: 相对 dir 在不同 include 层级/工作目录下会被解析到别处(曾导致找不到 package.json)
+    dir: '{{.ROOT_DIR}}/backend/bridge/node'
+    run: once
+    cmds:
+      - pnpm run build
+
+  node:check:
+    summary: Type-checks the node bridge child process
+    dir: '{{.ROOT_DIR}}/backend/bridge/node'
+    cmds:
+      - pnpm run check
+
   build:frontend:
     label: build:frontend (DEV={{.DEV}} RUNNER={{.PACKAGE_MANAGER}})
     summary: Build the frontend project
@@ -85,6 +100,9 @@ tasks:
     generates:
       - dist/**/*
     deps:
+      # node 子进程产物必须先于 Go 编译(Go 会 //go:embed 整个 dist):
+      # 否则会内嵌上一次的旧产物, 表现为"改了 node 代码但行为没变"。
+      - task: node:build
       - task: install:frontend:deps
       - task: generate:bindings
         vars:

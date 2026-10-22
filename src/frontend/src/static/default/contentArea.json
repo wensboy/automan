@@ -74,19 +74,13 @@
             "edit": "Edit",
             "inspect": "Inspect",
             "delete": "Delete",
-            "status": "Status",
-            "application": "Application"
+            "status": "Status"
         },
         "statusLabel": {
             "running": "Running",
             "stopped": "Stopped",
             "error": "Error",
             "exception": "Exception"
-        },
-        "applicationLabel": {
-            "chrome": "Chrome",
-            "edge": "Edge",
-            "firefox": "Firefox"
         },
         "rowsPerPage": "Rows per page",
         "previousPage": "Previous page",
@@ -113,9 +107,7 @@
         },
         "statusAria": "Filter by status",
         "allStatuses": "All statuses",
-        "noSelection": "Select at least one proxy",
-        "statusChanged": "Status updated: ",
-        "statusUnchanged": "No proxy needed changes"
+        "noSelection": "Select at least one proxy"
     },
     "records": {
         "title": "Records",

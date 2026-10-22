@@ -1,32 +1,34 @@
-import { backoffMs, closed, connect, send, sleep } from './ipc/client.ts';
+import { backoffMs, Peer, connect, sleep } from './ipc/client.ts';
 import { handshake } from './ipc/handshake.ts';
-import { startLiveness } from './ipc/liveness.ts';
 import { log } from './ipc/log.ts';
 import { startLoop } from './ipc/loop.ts';
-import { kind, name } from './ipc/protocol.ts';
 import { parseConfig, type Config } from './config.ts';
 import { handlers } from './service/index.ts';
 
 /** 一次会话: 连接 -> 握手 -> 就绪通知 -> 读循环, 直到连接结束。 */
 async function session(config: Config, attempt: number): Promise<void> {
   const ws = await connect(config.sock);
-  const result = await handshake(ws, {
+  const peer = new Peer(ws, config.livenessMs);
+  const result = await handshake(peer, {
     daemon: config.daemon,
     codec: config.codec,
     token: config.token,
   });
-  log(ws, 'info', 'bridge: connected', { sock: config.sock, daemon: result.daemon, attempt });
-  send(ws, { kind: kind.event, name: name.ready, data: { pid: process.pid, sock: config.sock } });
+  log(peer, 'info', 'bridge: connected', { sock: config.sock, daemon: result.daemon, attempt });
+  // 就绪通知(事件): 父进程据此更新状态
+  peer.notify('node.ready', { pid: process.pid, sock: config.sock });
 
-  startLoop(ws, handlers);
-  const stopLiveness = startLiveness(ws, config.livenessMs);
+  startLoop(peer, handlers);
   try {
-    ws.on('close', (code: number, reason: Buffer) => {
-      log(undefined, 'warn', 'bridge: closed', { code, reason: reason.toString() });
+    await new Promise<void>((resolve) => {
+      ws.once('close', (code: number, reason: Buffer) => {
+        log(undefined, 'warn', 'bridge: closed', { code, reason: reason.toString() });
+        resolve();
+      });
+      ws.once('error', () => resolve());
     });
-    await closed(ws);
   } finally {
-    stopLiveness();
+    peer.close();
   }
 }
 

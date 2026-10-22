@@ -1,27 +1,26 @@
-import type { Envelope, Outgoing, Packet } from './protocol.ts';
+import { protocolVersion, type Envelope, type Outgoing } from './protocol.ts';
 
-/** 业务负载 -> 信封 -> payload 字节 (对应 Go 侧 bridgekit.EncodeMessage)。 */
-export function encodeMessage(out: Outgoing): { id: string; payload: Uint8Array } {
-  const envelope: Envelope = { kind: out.kind, name: out.name };
-  if (out.data !== undefined) {
-    const data = Buffer.from(JSON.stringify(out.data));
-    if (data.length > 0) envelope.data = data.toString('base64');
-  }
-  return { id: out.id ?? '', payload: Buffer.from(JSON.stringify(envelope)) };
+/** 业务消息 -> 信封(直接 JSON, 不做 base64)。 */
+export function encodeEnvelope(out: Outgoing): Envelope {
+  const env: Envelope = { v: protocolVersion, kind: out.kind, name: out.name };
+  if (out.id !== undefined && out.id !== '') env.id = out.id;
+  if (out.data !== undefined) env.data = out.data;
+  return env;
 }
 
-/** payload 字节 -> 信封 -> Packet (对应 Go 侧 bridgekit.DecodeMessage)。 */
-export function decodeMessage(id: string, payload: Uint8Array): Packet {
-  const envelope = JSON.parse(Buffer.from(payload).toString('utf8')) as Envelope;
-  return {
-    id,
-    kind: envelope.kind,
-    name: envelope.name ?? '',
-    data: envelope.data ? Buffer.from(envelope.data, 'base64') : new Uint8Array(),
-  };
+/** 文本帧 -> 信封(结构非法时抛错, 由调用方决定丢弃)。 */
+export function decodeEnvelope(text: string): Envelope {
+  const env = JSON.parse(text) as Envelope;
+  if (env.kind === undefined) throw new Error('bad envelope: kind is required');
+  return env;
 }
 
-/** 解码业务负载 (当前约定为 json)。 */
-export function decodeData<T>(packet: Packet): T {
-  return JSON.parse(Buffer.from(packet.data).toString('utf8')) as T;
+/** 供业务读取 data 的辅助(未知时为 undefined)。 */
+export function dataOf<T>(env: Envelope): T | undefined {
+  return env.data as T | undefined;
+}
+
+/** 供业务读取 packet.data(兼容旧调用)。 */
+export function decodeData<T>(packet: { data: unknown }): T {
+  return packet.data as T;
 }

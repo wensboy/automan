@@ -50,21 +50,17 @@ export function Running(): $CancellablePromise<proxy$0.CaptureTarget[] | null> {
 }
 
 /**
- * SetStatus 批量改状态(工具栏启动/停止): 只改选中的、未删除且状态不同的行, 返回实际改动条数.
- */
-export function SetStatus(ids: string[] | null, status: string): $CancellablePromise<number> {
-    return $Call.ByID(655777151, ids, status);
-}
-
-/**
  * Start 批量启动代理(参数取自 sqlite, 让步后写回; 返回实际生效值)。
+ * 
+ * 带 panic 兜底: 启停是会触碰进程/文件/网络的路径, 一旦在绑定层 panic, Wails 的
+ * 进程会直接退出(dev 下表现为"窗口黑一下再重载")。这里把 panic 转成错误返回。
  */
 export function Start(ids: string[] | null): $CancellablePromise<proxy$0.StartResult> {
     return $Call.ByID(2037797797, ids);
 }
 
 /**
- * Stop 批量停止代理(进程收尾由 node runtime 兜底)。
+ * Stop 批量停止代理(进程收尾由 node runtime 兜底)。panic 兜底同 Start。
  */
 export function Stop(ids: string[] | null): $CancellablePromise<void> {
     return $Call.ByID(814427511, ids);

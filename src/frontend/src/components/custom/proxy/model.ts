@@ -13,6 +13,17 @@ export type ProxyStatus = "running" | "stopped" | "error" | "exception"
 
 export const PROXY_STATUSES: ProxyStatus[] = ["running", "stopped", "error", "exception"]
 
+/** 行菜单的状态动作: start/stop/restart/reload(restart = 先停再起)。 */
+export type ProxyAction = "start" | "stop" | "restart" | "reload"
+
+/** 行菜单里的动作项(文案由 static 数据提供, 这里只给顺序与取值)。 */
+export const proxyStatusActions: { value: ProxyAction }[] = [
+  { value: "start" },
+  { value: "stop" },
+  { value: "restart" },
+  { value: "reload" },
+]
+
 /** 状态过滤取值: 状态枚举 + all(不过滤)。 */
 export type ProxyStatusFilter = ProxyStatus | "all"
 
@@ -21,7 +32,7 @@ export type ProxyStatusFilter = ProxyStatus | "all"
  * rules 是 whistle 启动参数的 JSON 文本。
  */
 export function emptyInput(): Input {
-  return { name: "", target: "", status: "stopped", rules: "{}", description: "" }
+  return { name: "", target: "", rules: "{}", description: "" }
 }
 
 /**
@@ -45,7 +56,6 @@ export function toInput(row: Proxy): Input {
   return {
     name: row.name,
     target: row.target,
-    status: row.status,
     rules: prettyJSON(row.rules),
     description: row.description,
   }

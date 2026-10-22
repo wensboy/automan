@@ -57,16 +57,14 @@ func (f *fakeStore) Do(_ stdctx.Context, task domainstore.Task) (any, error) {
 				CreatedAt: args.Args[6].(int64), UpdatedAt: args.Args[7].(int64),
 			}
 		}
-		// 只处理"编辑"这条 UPDATE(7 个参数); 逻辑删除的 UPDATE 参数不同, 不在此解析
-		if strings.Contains(args.SQL, "SET name = ?") && f.row != nil && len(args.Args) >= 7 {
-			// 按 UPDATE 的参数顺序(name,target,status,rules,description,updated_at,id)就地更新,
-			// 这样随后的 Get 读到的是更新后的行(与真实库一致)
+		// 只处理"编辑"这条 UPDATE; 逻辑删除的 UPDATE 参数不同, 不在此解析
+		// 参数顺序(name,target,rules,description,updated_at,id): status 不在入参内(由执行链路维护)
+		if strings.Contains(args.SQL, "SET name = ?") && f.row != nil && len(args.Args) >= 6 {
 			f.row.Name = args.Args[0].(string)
 			f.row.Target = args.Args[1].(string)
-			f.row.Status = args.Args[2].(string)
-			f.row.Rules = args.Args[3].(string)
-			f.row.Description = args.Args[4].(string)
-			f.row.UpdatedAt = args.Args[5].(int64)
+			f.row.Rules = args.Args[2].(string)
+			f.row.Description = args.Args[3].(string)
+			f.row.UpdatedAt = args.Args[4].(int64)
 		}
 		return domainstore.ExecResult{RowsAffected: f.affected, LastInsertID: 0}, nil
 
@@ -177,7 +175,6 @@ func TestCreateValidatesInput(t *testing.T) {
 	}{
 		{"空 name", Input{Name: "  ", Target: "127.0.0.1:8899"}, "name must be"},
 		{"超长 name", Input{Name: strings.Repeat("a", maxNameLen+1), Target: "t"}, "name must be"},
-		{"非法 status", Input{Name: "p", Target: "t", Status: "starting"}, "status must be"},
 		{"rules 过大", Input{Name: "p", Target: "t", Rules: strings.Repeat("x", maxTextLen+1)}, "rules exceeds"},
 	}
 	for _, item := range cases {
@@ -256,7 +253,7 @@ func TestUpdateWritesChangedFieldsLog(t *testing.T) {
 	svc, store, logger := newService()
 	store.row = &Proxy{ID: "p1", Name: "old", Target: "t", Status: StatusStopped, Rules: "{}"}
 
-	updated, err := svc.Update(nil, "p1", Input{Name: "new", Target: "t", Status: StatusRunning, Rules: "{}"})
+	updated, err := svc.Update(nil, "p1", Input{Name: "new", Target: "t", Rules: "{}"})
 	if err != nil {
 		t.Fatalf("Update: %v", err)
 	}
@@ -268,8 +265,8 @@ func TestUpdateWritesChangedFieldsLog(t *testing.T) {
 		t.Fatalf("更新不应波及已删除行: %q", exec.sql)
 	}
 	record := logger.find(t, "proxy: updated")
-	if got := field(record, "fields"); got != "name,target,status" {
-		t.Fatalf("改动字段应为 name,target,status(rules 变化会带动派生 target), got %q", got)
+	if got := field(record, "fields"); got != "name,target" {
+		t.Fatalf("改动字段应为 name,target(rules 变化会带动派生 target; status 不在入参内), got %q", got)
 	}
 	if updated.Name != "new" {
 		t.Fatalf("返回行异常: %+v", updated)
