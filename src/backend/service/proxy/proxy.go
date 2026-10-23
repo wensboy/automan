@@ -21,6 +21,7 @@ import (
 	"github.com/wensboy/automan/backend/domain/key"
 	domainlog "github.com/wensboy/automan/backend/domain/log"
 	domainnotice "github.com/wensboy/automan/backend/domain/notice"
+	domainsettings "github.com/wensboy/automan/backend/domain/settings"
 	domainstore "github.com/wensboy/automan/backend/domain/store"
 	"github.com/wensboy/automan/backend/internal/cast"
 	apperr "github.com/wensboy/automan/backend/internal/err"
@@ -111,6 +112,8 @@ type Service struct {
 	index            *runtimeIndex
 	// notifier 是业务提示出口(可为 nil: 不产生提示)
 	notifier domainnotice.Publisher
+	// settings 是用户设置存储(代理上限/启动超时来自 settings.user)
+	settings domainsettings.Store
 	// opMu 串行化启停: header 批量与行菜单可能**同时**发起(不同入口),
 	// 并发会让同一实例被"启动中又被停止"或重复 claim, 极端情况下进程层面出错。
 	// 见 docs/design/v23.md §26。
@@ -185,6 +188,13 @@ func (s *Service) Create(_ domaincontext.Context, input Input) (Proxy, error) {
 	normalized, err := validate(input)
 	if err != nil {
 		s.reject("create", input.Name, err)
+		return Proxy{}, err
+	}
+	if total, err := s.currentCount(); err != nil {
+		return Proxy{}, err
+	} else if total >= s.maxCount() {
+		err := invalid("proxy limit reached (max %d)", s.maxCount())
+		s.reject("create", normalized.Name, err)
 		return Proxy{}, err
 	}
 	if err := s.ensureNameFree(normalized.Name, ""); err != nil {
@@ -553,6 +563,62 @@ func newID() string {
 	buf := make([]byte, 8)
 	_, _ = rand.Read(buf)
 	return fmt.Sprintf("%013x%s", time.Now().UnixMilli(), hex.EncodeToString(buf))
+}
+
+// WithSettings 注入用户设置: 代理数量/批量启动/并发上限与启动超时来自 settings.user。
+func (s *Service) WithSettings(settings domainsettings.Store) *Service {
+	s.settings = settings
+	return s
+}
+
+// 设置键(默认层/schema 同键; 语义由本服务执行)。
+const (
+	keyMaxCount   = "proxy.maxCountLimit"
+	keyMaxStart   = "proxy.maxStartLimit"
+	keyMaxRunning = "proxy.maxRunningLimit"
+	keyTimeout    = "proxy.timeout"
+)
+
+// settingInt 读取整型设置(未配置/类型不符时用兜底)。
+func (s *Service) settingInt(key string, fallbackValue int) int {
+	if s.settings == nil {
+		return fallbackValue
+	}
+	value, ok := s.settings.Get(key)
+	if !ok {
+		return fallbackValue
+	}
+	switch typed := value.(type) {
+	case int:
+		if typed > 0 {
+			return typed
+		}
+	case int64:
+		if typed > 0 {
+			return int(typed)
+		}
+	case float64:
+		if typed > 0 {
+			return int(typed)
+		}
+	}
+	return fallbackValue
+}
+
+func (s *Service) maxCount() int   { return s.settingInt(keyMaxCount, 64) }
+func (s *Service) maxStart() int   { return s.settingInt(keyMaxStart, 8) }
+func (s *Service) maxRunning() int { return s.settingInt(keyMaxRunning, 8) }
+
+// currentCount 统计当前工作区的代理数量(未删除)。
+func (s *Service) currentCount() (int, error) {
+	where, args := s.scopeWhere("deleted_at = 0", nil)
+	return s.count(where, args)
+}
+
+// runningCount 统计当前工作区正在运行的实例数。
+func (s *Service) runningCount() (int, error) {
+	where, args := s.scopeWhere("deleted_at = 0 AND status = ?", []any{StatusRunning})
+	return s.count(where, args)
 }
 
 // WithNotice 注入业务提示出口(可为 nil)。

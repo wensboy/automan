@@ -331,6 +331,17 @@ func (s *Service) Start(_ domaincontext.Context, ids []string) (StartResult, err
 	if err := s.requireWorkspace(); err != nil {
 		return StartResult{}, err
 	}
+	// 语义上限(设置项, 由本服务执行):
+	//   maxStartLimit -> 一次批量启动的条数; maxRunningLimit -> 当前工作区并发运行数
+	if limit := s.maxStart(); len(ids) > limit {
+		return StartResult{}, invalid("too many proxies in one batch (max %d)", limit)
+	}
+	if running, err := s.runningCount(); err != nil {
+		return StartResult{}, err
+	} else if running+len(ids) > s.maxRunning() {
+		return StartResult{}, invalid("running limit reached (max %d, now %d)", s.maxRunning(), running)
+	}
+
 	// 与 Stop 互斥: header 与行菜单可能同时触发, 必须串行(见 v23 §26)
 	s.opMu.Lock()
 	defer s.opMu.Unlock()
@@ -506,7 +517,11 @@ func (s *Service) templateRules() rules {
 	return parsed
 }
 
+// startTimeout 返回单个实例的启动等待上限: 设置项 proxy.timeout(毫秒)优先, 否则用配置/缺省。
 func (s *Service) startTimeout() time.Duration {
+	if ms := s.settingInt(keyTimeout, 0); ms > 0 {
+		return time.Duration(ms) * time.Millisecond
+	}
 	if s.startWait <= 0 {
 		return 15 * time.Second
 	}

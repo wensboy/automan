@@ -1,26 +1,18 @@
 {
     "appearence": {
-        "mode": "auto",
-        "compact": false
+        "mode": "auto"
     },
     "theme": {
         "current": "default",
         "register": "~/.config/automan/theme.json"
     },
     "proxy": {
-        "autoStart": false,
-        "timeout": 30,
-        "bypass": [
-            "localhost",
-            "127.0.0.1"
-        ],
-        "userAgent": ""
+        "maxCountLimit": 64,
+        "maxStartLimit": 8,
+        "maxRunningLimit": 8,
+        "timeout": 32000
     },
-    "automation": {
-        "enabled": false,
-        "concurrency": 4,
-        "paths": []
-    },
+    "automation": {},
     "general": {
         "language": "English",
         "startupPage": "/",
@@ -36,8 +28,5 @@
             "doNotDisturb": false
         }
     },
-    "advanced": {
-        "watchMs": 2000,
-        "debounceMs": 100
-    }
+    "advanced": {}
 }

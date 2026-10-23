@@ -11,21 +11,16 @@
         },
         "appearence": {
             "type": "object",
-            "description": "外观与布局.",
+            "description": "外观.",
             "properties": {
                 "mode": {
+                    "type": "string",
                     "enum": [
                         "auto",
                         "light",
                         "dark"
                     ],
-                    "default": "auto",
-                    "description": "主题模式: auto 跟随系统."
-                },
-                "compact": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "紧凑布局: 压缩行高与间距."
+                    "default": "auto"
                 }
             },
             "additionalProperties": false
@@ -49,65 +44,43 @@
         },
         "proxy": {
             "type": "object",
-            "description": "代理默认行为.",
+            "description": "代理相关上限与超时(由 service/proxy 按语义执行).",
             "properties": {
-                "autoStart": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "应用启动时自动启动代理."
+                "maxCountLimit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 4096,
+                    "default": 64,
+                    "description": "单工作区可创建的代理数量上限."
+                },
+                "maxStartLimit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 256,
+                    "default": 8,
+                    "description": "一次批量启动允许的最大条数."
+                },
+                "maxRunningLimit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 256,
+                    "default": 8,
+                    "description": "单工作区同时运行的最大实例数."
                 },
                 "timeout": {
-                    "type": "number",
-                    "minimum": 1,
-                    "maximum": 3600,
-                    "default": 30,
-                    "description": "上游超时 (秒)."
-                },
-                "bypass": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "default": [
-                        "localhost",
-                        "127.0.0.1"
-                    ],
-                    "description": "绕过代理的主机列表."
-                },
-                "userAgent": {
-                    "type": "string",
-                    "default": "",
-                    "description": "覆盖发送的 User-Agent (空表示不覆盖)."
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 300000,
+                    "default": 32000,
+                    "description": "单个实例启动等待上限(毫秒)."
                 }
             },
             "additionalProperties": false
         },
         "automation": {
             "type": "object",
-            "description": "自动化默认行为.",
-            "properties": {
-                "enabled": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "是否启用自动化."
-                },
-                "concurrency": {
-                    "type": "number",
-                    "minimum": 1,
-                    "maximum": 32,
-                    "default": 4,
-                    "description": "并发上限."
-                },
-                "paths": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "default": [],
-                    "description": "自动化脚本搜索目录."
-                }
-            },
-            "additionalProperties": false
+            "description": "自动化(预留).",
+            "additionalProperties": true
         },
         "general": {
             "type": "object",
@@ -180,24 +153,8 @@
         },
         "advanced": {
             "type": "object",
-            "description": "高级 (程序参数).",
-            "properties": {
-                "watchMs": {
-                    "type": "number",
-                    "minimum": 100,
-                    "maximum": 60000,
-                    "default": 2000,
-                    "description": "用户文件轮询间隔 (毫秒)."
-                },
-                "debounceMs": {
-                    "type": "number",
-                    "minimum": 0,
-                    "maximum": 5000,
-                    "default": 100,
-                    "description": "外部改动的去抖窗口 (毫秒)."
-                }
-            },
-            "additionalProperties": false
+            "description": "高级项(预留).",
+            "additionalProperties": true
         }
     },
     "additionalProperties": false

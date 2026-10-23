@@ -148,6 +148,7 @@ func registerServices(deps serviceDeps) (func(), error) {
 		WithLogger(engines.logger).
 		WithData(deps.data).
 		WithConfig(deps.provider).
+		WithSettings(engines.settings).
 		WithNotice(noticeSvc)
 	// 数据根: 供相对 basedir/storage 解析成绝对路径(否则会成为子进程 cwd 而导致 ENOENT)
 	if engines.rooter != nil {

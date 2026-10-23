@@ -27,7 +27,32 @@
             "type": "string"
         }
     },
-    "proxy": {},
+    "proxy": {
+        "maxCountLimit": {
+            "key": "proxy.maxCountLimit",
+            "label": "MaxCountLimit",
+            "description": "Maximum proxies per workspace",
+            "type": "number"
+        },
+        "maxStartLimit": {
+            "key": "proxy.maxStartLimit",
+            "label": "MaxStartLimit",
+            "description": "Maximum number of proxies that can be started at once",
+            "type": "number"
+        },
+        "maxRunningLimit": {
+            "key": "proxy.maxRunningLimit",
+            "label": "MaxRunningLimit",
+            "description": "Maximum number of concurrently running proxies",
+            "type": "number"
+        },
+        "timeout": {
+            "key": "proxy.timeout",
+            "label": "Timeout",
+            "description": "Default timeout(ms)",
+            "type": "number"
+        }
+    },
     "automation": {},
     "general": {
         "language": {
