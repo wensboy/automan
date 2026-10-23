@@ -13,5 +13,8 @@ description: "settings相关固定处理流程."
 ## 细节
 
 1. 后端 settings 负责配置操作和可改, 为配置唯一来源; 前端 settings 用于控制组件显示内容.
-2. 
+2. 前端 settings 当组件形式为 select 以及 array 时, 需要考虑静态和动态数据问题.
 
+## 参考
+
+1. git log 查看语义关于配置相关的处理(如: a053715).
