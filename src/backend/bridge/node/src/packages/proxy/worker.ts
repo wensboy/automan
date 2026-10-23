@@ -28,8 +28,8 @@ const whistle = ((): WhistleFunction => {
     return require('whistle');
   } catch (err) {
     throw new Error(
-      'whistle 不可解析: 在开发期由 NODE_PATH 指向 node_modules(见 conf/bridge.json), ' +
-        '分发环境需保证 whistle 可被 node 解析。原始错误: ' + String(err),
+      'whistle 不可解析: 产物应自带 dist/node_modules(构建脚本 copy-runtime.mjs), ' +
+        '若使用精简部署, 也可用 NODE_PATH 指向一份 whistle。原始错误: ' + String(err),
     );
   }
 })();

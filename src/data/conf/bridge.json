@@ -13,12 +13,12 @@
         "token": "",
         "restart": "none",
         "restartMax": 32,
-        "command": "",
-        "args": [],
-        "dir": "",
-        "env": [
-            "NODE_PATH=${AUTOMAN_ROOT}/backend/bridge/node/node_modules"
+        "command": "node",
+        "args": [
+            "${AUTOMAN_ASSET}/index.js"
         ],
+        "dir": "",
+        "env": [],
         "services": {
             "proxy": {
                 "root": "proxies/",

@@ -9,6 +9,8 @@ import (
 
 	apiweb "github.com/wensboy/automan/backend/api/web"
 	bridgeasset "github.com/wensboy/automan/backend/bridge"
+	noderunner "github.com/wensboy/automan/backend/bridge/runner/node"
+	domainbridge "github.com/wensboy/automan/backend/domain/bridge"
 	domainconfig "github.com/wensboy/automan/backend/domain/config"
 	"github.com/wensboy/automan/backend/domain/context"
 	"github.com/wensboy/automan/backend/domain/engine"
@@ -63,9 +65,17 @@ func Run(assets, data fs.FS) error {
 			_, ok := fields[name]
 			return ok
 		})),
+		// 通用桥接引擎 + daemon="node" 的运行器: 引擎不认识 node, 只按 daemon 名取运行器
 		bridgeengine.New(
 			bridgeengine.WithDaemon("node"),
-			bridgeengine.WithAsset(bridgeasset.Asset("node/dist")),
+			bridgeengine.WithRunner(func(deps domainbridge.RunnerDeps) (domainbridge.Runner, error) {
+				return noderunner.New(
+					noderunner.WithAsset(bridgeasset.Asset("node/dist")),
+					noderunner.WithStore(deps.Store),
+					noderunner.WithRooter(deps.Rooter),
+					noderunner.WithLogger(deps.Logger),
+				), nil
+			}),
 		),
 		win,
 	}

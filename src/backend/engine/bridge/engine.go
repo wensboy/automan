@@ -4,11 +4,9 @@ package bridge
 
 import (
 	stdctx "context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"io/fs"
-	"os"
 	"sync"
 	"time"
 
@@ -29,6 +27,7 @@ import (
 
 // 内置缺省, 优先级: option > conf/bridge.<daemon> > 此处.
 const (
+	defaultDaemon         = ""
 	defaultCodec          = "json"
 	defaultHandshakeMs    = 5000
 	defaultHeartbeatMs    = 15000
@@ -52,26 +51,9 @@ func WithDaemon(name string) Option { return func(e *Engine) { e.daemon = name }
 // WithSock 覆盖 sock 相对存储根的路径.
 func WithSock(path string) Option { return func(e *Engine) { e.sock = path } }
 
-// WithCommand 提供子进程启动指令 (语言无关: 命令 + 参数).
-func WithCommand(command string, args ...string) Option {
-	return func(e *Engine) {
-		e.command = command
-		e.args = args
-	}
-}
-
-// WithDir 设置子进程工作目录.
-func WithDir(dir string) Option { return func(e *Engine) { e.dir = dir } }
-
-// WithEnv 追加子进程环境变量 (显式声明, 不透传全部环境).
-func WithEnv(env ...string) Option { return func(e *Engine) { e.env = env } }
-
-// WithOutput 接管子进程的 stdout/stderr (缺省继承本进程).
-func WithOutput(stdout, stderr io.Writer) Option {
-	return func(e *Engine) {
-		e.stdout = stdout
-		e.stderr = stderr
-	}
+// WithRunner 注入 daemon 对应的运行器工厂(为空表示附着模式: 不拉起子进程)。
+func WithRunner(factory domainbridge.RunnerFactory) Option {
+	return func(e *Engine) { e.factory = factory }
 }
 
 // WithRestart 设置重启策略与最大次数.
@@ -81,10 +63,6 @@ func WithRestart(policy string, max int) Option {
 		e.restartMax = max
 	}
 }
-
-// WithAsset 提供被桥接进程的构建产物 (例如 node 侧 dist)。
-// 未显式配置启动指令时, 引擎会把它落到运行目录并据此拉起子进程。
-func WithAsset(asset fs.FS) Option { return func(e *Engine) { e.asset = asset } }
 
 // handlerEntry 是一个入站处理器。
 type handlerEntry struct {
@@ -98,15 +76,8 @@ type Engine struct {
 	daemon           string
 	sock             string
 	codecName        string
-	command          string
-	args             []string
-	dir              string
-	env              []string
-	stdout           io.Writer
-	stderr           io.Writer
 	restart          string
 	restartMax       int
-	asset            fs.FS
 	maxMessageBytes  int64
 	handshakeTimeout time.Duration
 	heartbeat        time.Duration
@@ -131,12 +102,14 @@ type Engine struct {
 	enabled bool
 	server  *transport.Listener
 	peer    *message.Peer
-	child   *childProcess
+	runner  domainbridge.Runner
+	factory domainbridge.RunnerFactory
+	params  json.RawMessage
 }
 
 // New 创建桥接引擎.
 func New(opts ...Option) *Engine {
-	e := &Engine{daemon: "node", handlers: map[string]handlerEntry{}}
+	e := &Engine{daemon: defaultDaemon, handlers: map[string]handlerEntry{}}
 	for _, opt := range opts {
 		opt(e)
 	}
@@ -198,18 +171,15 @@ func (e *Engine) Start(context.Context) error {
 	e.runCtx, e.cancel = runCtx, cancel
 	e.mu.Unlock()
 
-	if err := e.materialize(runCtx); err != nil {
-		return err
-	}
 	if err := e.listen(); err != nil {
 		return err
 	}
-	if err := e.startProcess(); err != nil {
+	if err := e.startProcess(runCtx); err != nil {
 		return err
 	}
 	e.wg.Add(1)
 	go e.serve(runCtx)
-	if e.command != "" {
+	if e.factory != nil {
 		e.wg.Add(1)
 		go e.supervise(runCtx)
 	}
@@ -229,7 +199,7 @@ func (e *Engine) Stop(context.Context) error {
 		cancel()
 	}
 	// 先终止子进程: supervise 阻塞在 Wait 上, 不先杀它会一直等下去.
-	e.stopProcess()
+	e.stopProcess(stdctx.Background())
 	if peer := e.currentPeer(); peer != nil {
 		peer.Close(stdctx.Background(), "engine stop")
 	}
@@ -242,52 +212,20 @@ func (e *Engine) Stop(context.Context) error {
 	return nil
 }
 
-// listen 创建监听面 (peer 生命周期归引擎, 由 ipc 执行).
-
-// rebind 重绑监听 (幂等): 关闭旧监听 -> 重新 Listen.
-
-func (e *Engine) currentChild() *childProcess {
+func (e *Engine) currentRunner() domainbridge.Runner {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	return e.child
-}
-
-func (e *Engine) setChild(child *childProcess) {
-	e.mu.Lock()
-	e.child = child
-	e.mu.Unlock()
-}
-
-func (e *Engine) takeChild() *childProcess {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	child := e.child
-	e.child = nil
-	return child
+	return e.runner
 }
 
 // apply 合并参数: option > 配置 > 内置缺省.
 func (e *Engine) apply(cfg config.Bridge) {
 	e.enabled = cfg.Enable == nil || *cfg.Enable
-	e.sock = pick(e.sock, cfg.Sock, "bridge/"+e.daemon+".sock")
+	e.sock = pick(e.sock, cfg.Sock, "bridge/"+fallback.String(e.daemon, "bridge")+".sock")
 	e.codecName = pick(e.codecName, cfg.Codec, defaultCodec)
-	e.command = pick(e.command, cfg.Command, "")
-	if len(e.args) == 0 {
-		e.args = cfg.Args
-	}
-	e.dir = pick(e.dir, cfg.Dir, "")
-	if len(e.env) == 0 {
-		e.env = cfg.Env
-	}
-	// 展开占位符(如开发期的 ${AUTOMAN_ROOT}); 解析不到的条目会被丢弃, 不会注入假路径
-	e.env = expandEnv(e.env)
+	// daemon 专属参数原样透传给运行器(运行器自行解析 command/env/services 等)
+	e.params = marshalParams(cfg)
 	e.token = pick(e.token, cfg.Token, "")
-	if e.stdout == nil {
-		e.stdout = os.Stdout
-	}
-	if e.stderr == nil {
-		e.stderr = os.Stderr
-	}
 	e.restart = pick(e.restart, cfg.Restart, restartNone)
 	e.restartMax = pickInt(e.restartMax, cfg.RestartMax, defaultRestartMax)
 	e.maxMessageBytes = pickInt64(e.maxMessageBytes, cfg.MaxMessageBytes, 0)

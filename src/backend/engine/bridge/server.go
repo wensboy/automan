@@ -47,7 +47,7 @@ func (e *Engine) listen() error {
 	e.logInfo("bridge: listening",
 		logkit.F("sock", listener.Addr()),
 		logkit.F("codec", e.codecName),
-		logkit.F("command", e.command))
+		logkit.F("daemon", e.daemon))
 	return nil
 }
 
