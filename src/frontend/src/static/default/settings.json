@@ -10,6 +10,13 @@
                 "light",
                 "dark"
             ]
+        },
+        "font": {
+            "key": "appearence.font",
+            "label": "Font",
+            "description": "Font family used across the interface.",
+            "type": "enum<string>",
+            "options": "appearence.font.options"
         }
     },
     "theme": {

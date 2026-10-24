@@ -31,6 +31,8 @@ const (
 	defaultsSrc      = "data/default/settings.user.json"
 	themeSrc         = "data/default/theme.json"
 	themeFile        = "theme.json"
+	fontSrc          = "data/default/font.json"
+	fontFile         = "font.json"
 )
 
 // loadDefaults 读取默认值层并摊平成"点号键 -> 默认值".
@@ -87,6 +89,10 @@ func syncUserFiles(ctx domaincontext.Context, data fs.FS) error {
 	}
 	// 主题文件: 用户目录缺失时同步一份(之后不再覆盖, 用户可自行编辑/指向别处)
 	if err := copyIfMissing(base, files, data, themeSrc, themeFile); err != nil {
+		return err
+	}
+	// 字体文件: 与 theme.json 同一处理(缺失时同步一份, 之后不覆盖)
+	if err := copyIfMissing(base, files, data, fontSrc, fontFile); err != nil {
 		return err
 	}
 	return copyAlways(base, files, data, schemaSrc, userSchemaFile)

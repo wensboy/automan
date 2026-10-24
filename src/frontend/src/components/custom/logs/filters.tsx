@@ -1,7 +1,8 @@
-import { SearchIcon } from "lucide-react"
+import { SearchIcon, Trash2Icon } from "lucide-react"
 import { cn } from "cn"
 
 import RichInput from "@/components/custom/share/rich-input"
+import { Button } from "@/components/ui/button"
 
 import {
   Select,
@@ -22,6 +23,7 @@ export default function LogFilters({
   onLevelChange,
   range,
   onRangeChange,
+  onClear,
 }: {
   className?: string
   query: string
@@ -30,6 +32,7 @@ export default function LogFilters({
   onLevelChange: (value: LogLevel | "all") => void
   range: LogTimeRange
   onRangeChange: (value: LogTimeRange) => void
+  onClear: () => void
 }) {
   const { Value } = useStatic()
 
@@ -75,6 +78,15 @@ export default function LogFilters({
           ))}
         </SelectContent>
       </Select>
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        aria-label={Value("contentArea.logs.clearAria")}
+        onClick={onClear}
+      >
+        <Trash2Icon className="size-4" />
+      </Button>
     </div>
   )
 }

@@ -53,3 +53,8 @@ export function bindThemeEvents(getDark: () => boolean): () => void {
     void applyTheme(getDark())
   })
 }
+
+/** 应用界面字体栈(来源: 后端 font.json 的 id -> path, 见 lib/fonts.ts)。 */
+export function applyFontStack(stack: string): void {
+  document.documentElement.style.setProperty("--font-sans", stack)
+}

@@ -21,6 +21,11 @@
                         "dark"
                     ],
                     "default": "auto"
+                },
+                "font": {
+                    "type": "string",
+                    "default": "inter",
+                    "description": "界面字体(候选由后端提供: appearence.font.options)."
                 }
             },
             "additionalProperties": false

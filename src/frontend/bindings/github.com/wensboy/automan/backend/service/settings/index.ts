@@ -3,5 +3,6 @@
 
 export type {
     Entry,
+    FontEntry,
     Theme
 } from "./models.js";

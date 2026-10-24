@@ -10,6 +10,19 @@ export interface Entry {
 }
 
 /**
+ * FontEntry 是一个可选字体(id 为设置值, path 为 CSS 字体栈)。
+ */
+export interface FontEntry {
+    "id": string;
+    "path": string;
+
+    /**
+     * builtin | system
+     */
+    "group": string;
+}
+
+/**
  * Theme 是当前主题的完整色板(light/dark 各一套 CSS 变量)。
  */
 export interface Theme {

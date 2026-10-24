@@ -60,6 +60,8 @@ export default function LogTerminal({
     const term = new Terminal({
       convertEol: true,
       fontSize: 12,
+      // 与界面一致的内置字体: xterm 默认用 Courier 系, 不同机器度量不同会串行
+      fontFamily: '"JetBrains Mono Variable", ui-monospace, SFMono-Regular, monospace',
       scrollback: 2000,
       theme: {
         ...(background ? { background } : {}),
@@ -85,6 +87,11 @@ export default function LogTerminal({
     }
     const observer = new ResizeObserver(refit)
     observer.observe(host)
+
+    // 内置字体(Inter/JetBrains Mono)是异步加载的: 初始化时若字体未就绪,
+    // xterm 会按后备字体的字符宽度算列宽 -> 表现为行列错位/右侧留白。
+    // 字体就绪后再 fit 一次即可纠正。
+    void document.fonts?.ready.then(() => refit()).catch(() => undefined)
 
     return () => {
       observer.disconnect()

@@ -22,6 +22,20 @@ export function Apply(patch: { [_ in string]?: any } | null): $CancellablePromis
 }
 
 /**
+ * Font 按 id 返回单个字体(前端取当前选中项的 path 做热替换)。
+ */
+export function Font(id: string): $CancellablePromise<settings$0.FontEntry> {
+    return $Call.ByID(3757870111, id);
+}
+
+/**
+ * Fonts 返回聚合后的字体候选(builtin + system; 每项 id + path)。
+ */
+export function Fonts(): $CancellablePromise<settings$0.FontEntry[] | null> {
+    return $Call.ByID(110169604);
+}
+
+/**
  * Get 读取单个配置项.
  */
 export function Get(name: string): $CancellablePromise<settings$0.Entry> {

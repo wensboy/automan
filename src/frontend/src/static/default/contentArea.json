@@ -205,7 +205,9 @@
                 "value": "1h",
                 "label": "Last hour"
             }
-        ]
+        ],
+        "clear": "Clear",
+        "clearAria": "Clear log buffer"
     },
     "automation": {
         "title": "Automation",

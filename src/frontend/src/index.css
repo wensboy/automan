@@ -1,7 +1,22 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* 内置字体: 见 docs/design/v23.md §39
+   只用自带 woff2, 不落到系统字体栈 —— 避免"某台机器装了 Segoe UI/其它字"导致
+   所有文字在行盒内整体偏移(盒子尺寸不变, 只有基线跑位, 极难察觉)。 */
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+
 @custom-variant dark (&:is(.dark *));
+
+/* 字体固定为内置字体(见 docs/design/v23.md §39):
+   覆盖 Tailwind 缺省的 system 栈 —— 否则某台机器装了 Segoe UI 等字体后,
+   所有文字会在行盒内整体偏移(盒子尺寸不变, 只有基线跑位, 极难察觉)。
+   用 @theme(非 inline): 变量会作为 :root 的值输出, preflight 的 html 规则直接生效。 */
+@theme {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, monospace;
+}
 
 /* 主题 token 的唯一来源 (shadcn/ui · new-york · neutral)
    语义色只在这里定义, 组件一律通过语义类引用 (bg-background / text-muted-foreground / rounded-lg ...) */

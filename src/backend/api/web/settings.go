@@ -81,6 +81,24 @@ func (s *SettingsService) Theme() (servicesettings.Theme, error) {
 	return svc.Theme(s.ctx)
 }
 
+// Fonts 返回聚合后的字体候选(builtin + system; 每项 id + path)。
+func (s *SettingsService) Fonts() ([]servicesettings.FontEntry, error) {
+	svc, ok := srvkit.Of(s.ctx, servicesettings.Key)
+	if !ok {
+		return nil, apperr.New(apperr.CodeNotFound)
+	}
+	return svc.Fonts(s.ctx)
+}
+
+// Font 按 id 返回单个字体(前端取当前选中项的 path 做热替换)。
+func (s *SettingsService) Font(id string) (servicesettings.FontEntry, error) {
+	svc, ok := srvkit.Of(s.ctx, servicesettings.Key)
+	if !ok {
+		return servicesettings.FontEntry{}, apperr.New(apperr.CodeNotFound)
+	}
+	return svc.Font(s.ctx, id)
+}
+
 // Save 落盘当前覆盖项.
 func (s *SettingsService) Save() error {
 	svc, ok := srvkit.Of(s.ctx, servicesettings.Key)

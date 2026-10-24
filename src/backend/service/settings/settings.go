@@ -13,6 +13,7 @@ import (
 	stdctx "context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"reflect"
 	"strings"
@@ -44,6 +45,7 @@ type Service struct {
 	notifier domainnotice.Publisher
 	store    domainsettings.Store
 	files    domainstore.Store // 用户目录(动态选项的文件来源, 例 theme.json)
+	data     fs.FS             // 内嵌资源(缺省 font.json 等)
 	fields   map[string]schemakit.Field
 	defaults map[string]any
 }
@@ -223,6 +225,7 @@ func (s *Service) readThemes() ([]themeFileEntry, error) {
 // optionsTheme 是"主题列表"的选项键(前端 options 用字符串表示动态来源时传这个 key).
 const (
 	optionsTheme   = "theme.current.options"
+	optionsFont    = "appearence.font.options"
 	targetFallback = "theme.json"
 )
 
@@ -231,6 +234,20 @@ const (
 // 规则: 当前值不在候选列表里时, 自动选第一个(与"总是默认选择第一个主题"一致)。
 func (s *Service) Options(ctx domaincontext.Context, name string) ([]string, error) {
 	switch strings.TrimSpace(name) {
+	case optionsFont:
+		// 字体候选 = font.json 的 builtin + system 聚合(见 service/settings/font.go)
+		fonts, err := s.Fonts(ctx)
+		ids := make([]string, 0, len(fonts))
+		if err == nil {
+			for _, font := range fonts {
+				ids = append(ids, font.ID)
+			}
+		}
+		// 配置不可读时回落到内置两项: 设置界面不应因此打不开
+		if len(ids) == 0 {
+			ids = []string{"inter", "system"}
+		}
+		return ids, nil
 	case optionsTheme:
 		options, err := s.themeOptions(ctx)
 		if err != nil {

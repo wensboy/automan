@@ -1,0 +1,13 @@
+{
+    "builtin": [
+        {
+            "id": "inter",
+            "path": "\"Inter Variable\", ui-sans-serif, system-ui, sans-serif"
+        },
+        {
+            "id": "jetbrains-mono",
+            "path": "\"JetBrains Mono Variable\", ui-monospace, SFMono-Regular, monospace"
+        }
+    ],
+    "system": []
+}

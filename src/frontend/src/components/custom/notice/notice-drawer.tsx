@@ -112,8 +112,8 @@ export default function NoticeDrawer({
               <Trash2Icon className="size-4" />
             </Button>
           </div>
-          <ScrollArea className="min-h-0 flex-1">
-            <div className="flex flex-col gap-3 pr-3">
+          <ScrollArea className="min-h-0 flex-1" type="hover">
+            <div className="flex flex-col gap-3">
               {visible.map((notice) => (
                 <NoticeItem
                   key={notice.id}

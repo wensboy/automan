@@ -1,6 +1,7 @@
 {
     "appearence": {
-        "mode": "auto"
+        "mode": "auto",
+        "font": "inter"
     },
     "theme": {
         "current": "default",

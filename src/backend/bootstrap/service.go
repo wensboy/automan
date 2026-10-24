@@ -111,6 +111,7 @@ func registerServices(deps serviceDeps) (func(), error) {
 		servicesettings.New().WithNotice(noticeSvc).
 			WithStore(engines.settings).
 			WithFiles(engines.files).
+			WithData(deps.data).
 			WithFields(deps.fields).
 			WithDefaults(defaults)); err != nil {
 		return nil, err

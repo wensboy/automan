@@ -2,6 +2,8 @@ import * as React from "react"
 
 import { useTheme } from "@/components/custom/share/provider/theme-provider"
 import { loadSettings, subscribeSettings } from "@/lib/settings"
+import { loadFontStack } from "@/lib/fonts"
+import { applyFontStack } from "@/lib/theme"
 
 /** 设置项 appearence.mode -> 主题 provider 的取值 (auto 即跟随系统)。 */
 const MODE_TO_THEME: Record<string, "system" | "light" | "dark"> = {
@@ -25,12 +27,17 @@ export default function ThemeSync() {
 
     const apply = () => {
       void loadSettings()
-        .then((values) => {
+        .then(async (values) => {
           if (cancelled) return
           const mode = values["appearence.mode"]
-          if (typeof mode !== "string") return
-          const theme = MODE_TO_THEME[mode]
-          if (theme) setTheme(theme)
+          if (typeof mode === "string") {
+            const theme = MODE_TO_THEME[mode]
+            if (theme) setTheme(theme)
+          }
+          // 字体: 与主题同源(settings 是唯一生效来源); 按选中 id 取 path 后热替换
+          const font = values["appearence.font"]
+          const stack = await loadFontStack(typeof font === "string" ? font : undefined)
+          applyFontStack(stack)
         })
         .catch(() => undefined)
     }

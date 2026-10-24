@@ -9,18 +9,16 @@ import { Textarea } from "@/components/ui/textarea"
  * 不传插槽时行为与原控件完全一致, 因此可直接替代 Input/Textarea 使用。
  * 前缀默认不接收指针事件(纯装饰), 后缀保持可交互(可放按钮/清除等)。
  */
-export default function RichInput({
-  prefix,
-  suffix,
-  className,
-  multiline = false,
-  ...props
-}: Omit<React.ComponentProps<typeof Input>, "prefix" | "suffix"> &
+type RichInputProps = Omit<React.ComponentProps<typeof Input>, "prefix" | "suffix"> &
   Partial<Omit<React.ComponentProps<typeof Textarea>, "prefix" | "suffix">> & {
     prefix?: React.ReactNode
     suffix?: React.ReactNode
     multiline?: boolean
-  }) {
+  }
+
+// React 18: 作为子组件被 Slot/asChild 包裹时会收到 ref -> 必须显式转发
+const RichInput = React.forwardRef<HTMLInputElement | HTMLTextAreaElement, RichInputProps>(
+  function RichInput({ prefix, suffix, className, multiline = false, ...props }, ref) {
   // 多行时插槽贴顶对齐 (单行居中), 否则前缀会落到整块中间。
   const slotClass = multiline ? "top-2" : "top-1/2 -translate-y-1/2"
   const controlClass = cn(prefix && "pl-8", suffix && "pr-8", className)
@@ -39,11 +37,12 @@ export default function RichInput({
       )}
       {multiline ? (
         <Textarea
+          ref={ref as React.Ref<HTMLTextAreaElement>}
           className={controlClass}
           {...(props as React.ComponentProps<typeof Textarea>)}
         />
       ) : (
-        <Input className={controlClass} {...props} />
+        <Input ref={ref as React.Ref<HTMLInputElement>} className={controlClass} {...props} />
       )}
       {suffix && (
         <span
@@ -56,5 +55,8 @@ export default function RichInput({
         </span>
       )}
     </div>
-  )
-}
+    )
+  },
+)
+
+export default RichInput

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	domainsettings "github.com/wensboy/automan/backend/domain/settings"
 	domainstore "github.com/wensboy/automan/backend/domain/store"
@@ -297,5 +298,44 @@ func TestThemeSelectsCurrent(t *testing.T) {
 	}
 	if fallback.ID != "default" {
 		t.Fatalf("失效值应回落到第一个主题, got %q", fallback.ID)
+	}
+}
+
+// 字体候选由后端提供(前端 options 用字符串键时按该键调用)。
+func TestOptionsFonts(t *testing.T) {
+	svc := New()
+	got, err := svc.Options(nil, "appearence.font.options")
+	if err != nil {
+		t.Fatalf("Options(font): %v", err)
+	}
+	if len(got) != 2 || got[0] != "inter" || got[1] != "system" {
+		t.Fatalf("字体候选异常: %+v", got)
+	}
+}
+
+// 字体: 用户文件缺失时回落到内嵌缺省; 聚合 builtin + system 且可按 id 取 path。
+func TestFontsFromEmbeddedDefault(t *testing.T) {
+	data := fstest.MapFS{
+		"data/default/font.json": &fstest.MapFile{Data: []byte(`{
+			"builtin": [{"id":"inter","path":"\"Inter Variable\", sans-serif"}],
+			"system":  [{"id":"pingfang","path":"\"PingFang SC\", sans-serif"}]
+		}`)},
+	}
+	svc := New().WithData(data)
+
+	fonts, err := svc.Fonts(nil)
+	if err != nil {
+		t.Fatalf("Fonts: %v", err)
+	}
+	if len(fonts) != 2 || fonts[0].ID != "inter" || fonts[1].Group != "system" {
+		t.Fatalf("聚合结果异常: %+v", fonts)
+	}
+
+	font, err := svc.Font(nil, "pingfang")
+	if err != nil || font.Path != `"PingFang SC", sans-serif` {
+		t.Fatalf("按 id 取字体异常: %+v err=%v", font, err)
+	}
+	if _, err := svc.Font(nil, "missing"); err == nil {
+		t.Fatal("未知 id 应报错")
 	}
 }
