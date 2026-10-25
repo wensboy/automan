@@ -3,6 +3,7 @@
 
 import * as CommandService from "./commandservice.js";
 import * as HelpService from "./helpservice.js";
+import * as LogService from "./logservice.js";
 import * as NoticeService from "./noticeservice.js";
 import * as ProxyService from "./proxyservice.js";
 import * as SessionService from "./sessionservice.js";
@@ -12,6 +13,7 @@ import * as WorkspaceService from "./workspaceservice.js";
 export {
     CommandService,
     HelpService,
+    LogService,
     NoticeService,
     ProxyService,
     SessionService,
@@ -19,3 +21,7 @@ export {
     UserService,
     WorkspaceService
 };
+
+export type {
+    LogBatch
+} from "./models.js";

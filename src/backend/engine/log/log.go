@@ -51,6 +51,11 @@ type Engine struct {
 	disk   *disk   // 供启动期 fs 处理
 	stream *stream // 流式 out: 持有二级总线
 
+	// recent 是"最近记录"环: 供前端按游标回放(见 docs/design/v23.md §47)
+	recentMu  sync.RWMutex
+	recent    []recentEntry
+	recentSeq uint64
+
 	delivered atomic.Uint64
 	dropped   atomic.Uint64
 	flushed   atomic.Uint64
@@ -139,6 +144,8 @@ func (e *Engine) Start(context.Context) error {
 	// 只转发"程序运行启动后"的日志: 此前入队的记录在 start 内被清空
 	if e.stream != nil {
 		e.stream.start()
+		// 自订阅: 把后续记录留一份在回放环里(前端可随时按游标补齐)
+		e.stream.Subscribe(e.remember)
 	}
 	return nil
 }
@@ -265,3 +272,57 @@ var (
 	errStoreUnavailable    = errors.New(`log: engine "store" unavailable`)
 	errEventBusUnavailable = errors.New(`log: engine "eventbus" unavailable`)
 )
+
+// recentCapacity 是回放环容量(约等于前端一次可回看的历史条数)。
+const recentCapacity = 1000
+
+// recentEntry 是带回放序号的一条记录。
+type recentEntry struct {
+	Seq    uint64
+	Record domainlog.Record
+}
+
+// remember 把一批记录追加到回放环(超出容量丢最旧)。
+func (e *Engine) remember(batch []domainlog.Record) {
+	e.recentMu.Lock()
+	defer e.recentMu.Unlock()
+	for _, record := range batch {
+		e.recentSeq++
+		e.recent = append(e.recent, recentEntry{Seq: e.recentSeq, Record: record})
+	}
+	if overflow := len(e.recent) - recentCapacity; overflow > 0 {
+		e.recent = e.recent[overflow:]
+	}
+}
+
+// Recent 实现 domain/log.RecentReader: 返回 after 之后的记录(最多 limit 条)与当前最大 seq。
+func (e *Engine) Recent(after uint64, limit int) ([]domainlog.Record, uint64) {
+	if limit <= 0 || limit > recentCapacity {
+		limit = recentCapacity
+	}
+	e.recentMu.RLock()
+	defer e.recentMu.RUnlock()
+	out := make([]domainlog.Record, 0, limit)
+	last := after // 返回"这批最后一条的 seq": 不能给全局最大, 否则前端游标会跳过未返回的记录
+	for _, entry := range e.recent {
+		if entry.Seq <= after {
+			continue
+		}
+		out = append(out, entry.Record)
+		last = entry.Seq
+		if len(out) >= limit {
+			break
+		}
+	}
+	return out, last
+}
+
+// RecentInfo 实现 domain/log.RecentReader: 返回环里最旧/最新的 seq 与条数。
+func (e *Engine) RecentInfo() (uint64, uint64, int) {
+	e.recentMu.RLock()
+	defer e.recentMu.RUnlock()
+	if len(e.recent) == 0 {
+		return 0, e.recentSeq, 0
+	}
+	return e.recent[0].Seq, e.recentSeq, len(e.recent)
+}

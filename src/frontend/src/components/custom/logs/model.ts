@@ -25,15 +25,20 @@ export const logRangeMs: Record<Exclude<LogTimeRange, "all">, number> = {
 /** 后端下发的单条记录 (Record 的 JSON 形态)。 */
 export type StreamRecord = {
   time: string
-  level: string
+  /** 后端 Level 是 Go 枚举: 绑定层生成的是数字(0..3), 也兼容字符串形态。 */
+  level: string | number
   msg: string
-  fields?: { key: string; value: string }[]
+  fields?: { key: string; value: any }[] | null
 }
 
 const LEVELS: LogLevel[] = ["debug", "info", "warn", "error"]
 
-function toLevel(raw: string): LogLevel {
-  const level = raw?.toLowerCase() as LogLevel
+function toLevel(raw: unknown): LogLevel {
+  // 数字枚举: 0=debug 1=info 2=warn 3=error(见 domain/log.Level)
+  if (typeof raw === "number") {
+    return LEVELS[raw] ?? "info"
+  }
+  const level = String(raw ?? "").toLowerCase() as LogLevel
   return LEVELS.includes(level) ? level : "info"
 }
 
@@ -41,7 +46,7 @@ function toLevel(raw: string): LogLevel {
 function formatMessage(record: StreamRecord): string {
   let message = record.msg ?? ""
   for (const field of record.fields ?? []) {
-    message += ` ${field.key}=${field.value}`
+    message += ` ${field.key}=${String(field.value)}`
   }
   return message
 }

@@ -1,4 +1,4 @@
-import { SearchIcon, Trash2Icon } from "lucide-react"
+import { RefreshCwIcon, SearchIcon, Trash2Icon } from "lucide-react"
 import { cn } from "cn"
 
 import RichInput from "@/components/custom/share/rich-input"
@@ -24,6 +24,7 @@ export default function LogFilters({
   range,
   onRangeChange,
   onClear,
+  onRefresh,
 }: {
   className?: string
   query: string
@@ -33,6 +34,7 @@ export default function LogFilters({
   range: LogTimeRange
   onRangeChange: (value: LogTimeRange) => void
   onClear: () => void
+  onRefresh: () => void
 }) {
   const { Value } = useStatic()
 
@@ -78,6 +80,15 @@ export default function LogFilters({
           ))}
         </SelectContent>
       </Select>
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        aria-label={Value("contentArea.logs.refreshAria")}
+        onClick={onRefresh}
+      >
+        <RefreshCwIcon className="size-4" />
+      </Button>
       <Button
         type="button"
         variant="outline"

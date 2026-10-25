@@ -150,7 +150,8 @@ func registerServices(deps serviceDeps) (func(), error) {
 		WithData(deps.data).
 		WithConfig(deps.provider).
 		WithSettings(engines.settings).
-		WithNotice(noticeSvc)
+		WithNotice(noticeSvc).
+		WithEventBus(engines.ebus)
 	// 数据根: 供相对 basedir/storage 解析成绝对路径(否则会成为子进程 cwd 而导致 ENOENT)
 	if engines.rooter != nil {
 		proxySrv = proxySrv.WithRoot(engines.rooter.Root())

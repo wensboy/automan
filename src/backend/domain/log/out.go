@@ -48,3 +48,11 @@ type Stats struct {
 	Buffered  int
 	Outs      int
 }
+
+// RecentReader 由保留"最近记录"的 logger 实现: 供前端按游标回放(页面未打开时的日志也不丢).
+type RecentReader interface {
+	// Recent 返回 seq 之后的最多 limit 条记录, 以及本批最后一条的 seq.
+	Recent(after uint64, limit int) ([]Record, uint64)
+	// RecentInfo 返回回放环的元信息(最旧/最新 seq 与条数), 供调用方决定是否需要全量.
+	RecentInfo() (oldest uint64, newest uint64, count int)
+}

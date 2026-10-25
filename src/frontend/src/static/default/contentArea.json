@@ -195,7 +195,9 @@
             }
         ],
         "clear": "Clear",
-        "clearAria": "Clear log buffer"
+        "clearAria": "Clear log buffer",
+        "refresh": "Refresh",
+        "refreshAria": "Reload log from backend"
     },
     "automation": {
         "title": "Automation",

@@ -3,7 +3,7 @@ import * as React from "react"
 import LogFilters from "@/components/custom/logs/filters"
 import { logRangeMs, type LogLevel, type LogTimeRange } from "@/components/custom/logs/model"
 import LogTerminal from "@/components/custom/logs/terminal"
-import { clearLogs, ensureLogSubscription, snapshotLogs, subscribeLogs } from "@/lib/logs"
+import { ensureLogPolling, refreshLogs, useLogsStore } from "@/store/logs"
 
 /**
  * 日志 (nav-Main: Logs): 头部筛选 + 终端显示 + 命令输入。
@@ -11,14 +11,16 @@ import { clearLogs, ensureLogSubscription, snapshotLogs, subscribeLogs } from "@
  * 数据来自后端日志引擎的二级总线事件 "log:stream" (只含程序运行启动后的日志)。
  */
 export default function Logs() {
-  // 行缓冲在模块层(lib/logs): 路由切换不清空, 只有显式 clear 才丢弃
-  const lines = React.useSyncExternalStore(subscribeLogs, snapshotLogs)
+  // 行缓冲在 store(app 级): 页面只渲染; 数据拉取与挂载时机无关
+  const lines = useLogsStore((state) => state.lines)
+  const clear = useLogsStore((state) => state.clear)
   const [query, setQuery] = React.useState("")
   const [level, setLevel] = React.useState<LogLevel | "all">("all")
   const [range, setRange] = React.useState<LogTimeRange>("all")
 
+  // 兜底: 正常由应用启动时开启; 这里再调一次是幂等的(避免热重载等场景)
   React.useEffect(() => {
-    ensureLogSubscription()
+    ensureLogPolling()
   }, [])
 
   const visible = React.useMemo(() => {
@@ -43,7 +45,8 @@ export default function Logs() {
           onLevelChange={setLevel}
           range={range}
           onRangeChange={setRange}
-          onClear={clearLogs}
+          onClear={clear}
+          onRefresh={() => void refreshLogs()}
         />
         <LogTerminal lines={visible} className="min-h-0 flex-1" />
       </div>
