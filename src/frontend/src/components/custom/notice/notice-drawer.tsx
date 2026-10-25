@@ -84,12 +84,10 @@ export default function NoticeDrawer({
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="right">
       <DrawerContent aria-describedby={undefined}>
-        <DrawerHeader className="text-center">
+        <DrawerHeader className="flex flex-row items-center justify-between gap-2">
           <DrawerTitle>{staticValue("sidebar.notice.title")}</DrawerTitle>
-        </DrawerHeader>
-        <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 pt-0">
-          <NoticeSearch value={query} onChange={setQuery} />
-          <div className="flex items-center justify-end gap-2">
+          {/* 动作按钮收进 header(右侧): 勿扰 / 清除; 行为不变 */}
+          <div className="flex items-center gap-1">
             <SwitchButton
               active={dnd}
               onToggle={toggleDND}
@@ -112,6 +110,9 @@ export default function NoticeDrawer({
               <Trash2Icon className="size-4" />
             </Button>
           </div>
+        </DrawerHeader>
+        <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 pt-0">
+          <NoticeSearch value={query} onChange={setQuery} />
           <ScrollArea className="min-h-0 flex-1" type="hover">
             <div className="flex flex-col gap-3">
               {visible.map((notice) => (

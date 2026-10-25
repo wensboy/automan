@@ -1,5 +1,5 @@
 import * as React from "react"
-import { PlusIcon } from "lucide-react"
+import { MenuIcon } from "lucide-react"
 
 import EmptyState from "@/components/custom/share/empty-state"
 
@@ -54,13 +54,13 @@ export default function Home() {
   return (
     <div className="flex min-h-0 flex-1 flex-col p-4 pt-0">
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
-        <div className="flex items-center justify-between gap-2 border-b p-1">
+        <div className="flex h-9 shrink-0 items-stretch justify-between gap-1 border-b py-1 pr-1 pl-1">
           <TabBar
             items={openTabs}
             value={activeId}
             onValueChange={setActiveId}
             onClose={closeFeature}
-            className="flex-1"
+            className="h-full flex-1"
           />
           <DropdownMenu>
             {/*
@@ -71,11 +71,11 @@ export default function Home() {
               asChild
               variant="ghost"
               size="icon"
-              className="size-7 shrink-0"
+              className="my-auto size-7 shrink-0"
               aria-label={Value("contentArea.home.addFeature")}
             >
               <DropdownMenuTrigger>
-                <PlusIcon />
+                <MenuIcon />
               </DropdownMenuTrigger>
             </Button>
             <DropdownMenuContent align="end" className="w-48">

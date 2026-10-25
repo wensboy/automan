@@ -53,7 +53,7 @@ export default function TabBar({
             key={item.value}
             className={cn(
               // 标签之间不用分隔线, 靠父层 gap 区分
-              "group flex h-8 shrink-0 items-center gap-1 pr-1 pl-2 text-sm",
+              "group flex h-full shrink-0 items-center gap-1 pr-1 pl-2 text-sm",
               // 同色调凸显: 选中项只比背景深/浅一档 (浅色更灰、深色更亮), 不做反色;
               // 未选中与所在背景一致, 仅在悬停时给一点反馈
               active

@@ -9,28 +9,16 @@
     },
     "home": {
         "title": "Home",
-        "addFeature": "Add feature",
+        "addFeature": "Features",
         "emptyTitle": "No feature selected",
         "emptyHint": "Pick a feature from the menu on the right.",
         "closeTab": "Close ",
         "features": [
             {
-                "id": "certificates",
-                "label": "Certificates",
-                "description": "This feature is not implemented yet.",
-                "icon": "shield-check"
-            },
-            {
-                "id": "statistics",
-                "label": "Statistics",
+                "id": "analysis",
+                "label": "Analysis",
                 "description": "This feature is not implemented yet.",
                 "icon": "chart-column"
-            },
-            {
-                "id": "quick-jump",
-                "label": "Quick Jump",
-                "description": "This feature is not implemented yet.",
-                "icon": "zap"
             },
             {
                 "id": "environment",
@@ -39,10 +27,10 @@
                 "icon": "server"
             },
             {
-                "id": "storage",
-                "label": "Storage",
+                "id": "certificates",
+                "label": "Certificates",
                 "description": "This feature is not implemented yet.",
-                "icon": "database"
+                "icon": "shield-check"
             },
             {
                 "id": "about",
