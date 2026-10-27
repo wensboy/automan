@@ -1,0 +1,9 @@
+DROP INDEX IF EXISTS idx_bridge_trace_at;
+DROP TABLE IF EXISTS bridge_trace;
+DROP INDEX IF EXISTS idx_log_trace_domain;
+DROP INDEX IF EXISTS idx_log_trace_level;
+DROP INDEX IF EXISTS idx_log_trace_at;
+DROP TABLE IF EXISTS log_trace;
+DROP INDEX IF EXISTS idx_proxy_trace_action;
+DROP INDEX IF EXISTS idx_proxy_trace_at;
+DROP TABLE IF EXISTS proxy_trace;

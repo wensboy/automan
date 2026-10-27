@@ -25,6 +25,10 @@ var migrations = []string{
 	"000003_add_proxy_user_id.down.sql",
 	"000004_add_workspaces.up.sql",
 	"000004_add_workspaces.down.sql",
+	"000005_create_analysis_traces.up.sql",
+	"000005_create_analysis_traces.down.sql",
+	"000006_add_proxy_trace_workspace.up.sql",
+	"000006_add_proxy_trace_workspace.down.sql",
 }
 
 // migrationFS 只暴露清单内的文件 —— golang-migrate 的 iofs 会遍历整个目录,

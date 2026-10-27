@@ -1,6 +1,8 @@
 import * as React from "react"
 import { MenuIcon } from "lucide-react"
 
+import AboutView from "@/components/custom/home/about"
+import AnalysisView from "@/components/custom/home/analysis"
 import EmptyState from "@/components/custom/share/empty-state"
 
 import TabBar from "@/components/custom/share/tab-bar"
@@ -88,8 +90,12 @@ export default function Home() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <div className="flex min-h-0 flex-1 flex-col overflow-auto">
-          {activeFeature ? (
+        <div className="flex min-h-0 flex-1 flex-col">
+          {activeFeature?.id === "analysis" ? (
+            <AnalysisView />
+          ) : activeFeature?.id === "about" ? (
+            <AboutView />
+          ) : activeFeature ? (
             <EmptyState
               title={activeFeature.label}
               description={activeFeature.description}

@@ -38,7 +38,207 @@
                 "description": "This feature is not implemented yet.",
                 "icon": "info"
             }
-        ]
+        ],
+        "analysis": {
+            "views": [
+                {
+                    "value": "proxy",
+                    "label": "Proxy"
+                },
+                {
+                    "value": "record",
+                    "label": "Record"
+                },
+                {
+                    "value": "automation",
+                    "label": "Automation"
+                },
+                {
+                    "value": "log",
+                    "label": "Log"
+                },
+                {
+                    "value": "service",
+                    "label": "Service"
+                },
+                {
+                    "value": "system",
+                    "label": "System"
+                }
+            ],
+            "empty": "This analysis view is on the way.",
+            "switchAria": "Switch analysis view",
+            "proxy": {
+                "statusTitle": "Status distribution",
+                "traceTitle": "Operation trace",
+                "topkTitle": "Top-K frequency",
+                "columnsTitle": "Columns",
+                "toggleColumnsAria": "Toggle columns",
+                "topkAria": "Top-K frequency",
+                "columns": {
+                    "id": "ID",
+                    "name": "Name",
+                    "listen": "Listen",
+                    "action": "Action",
+                    "workspace": "Workspace"
+                },
+                "kOptions": [
+                    5,
+                    10,
+                    15,
+                    20
+                ],
+                "totalLabel": "Proxies",
+                "totalAria": "Total proxies",
+                "workspaceAria": "Workspace",
+                "workspaceAll": "All workspaces"
+            },
+            "log": {
+                "levelTitle": "Level distribution",
+                "domainTitle": "Domain statistics",
+                "issueTitle": "Warnings & errors",
+                "columnsTitle": "Columns",
+                "toggleColumnsAria": "Toggle columns",
+                "timeAria": "Time range",
+                "levelColors": {
+                    "debug": "var(--muted-foreground)",
+                    "info": "var(--primary)",
+                    "warn": "var(--status-stopped)",
+                    "error": "var(--status-error)"
+                },
+                "domainColumns": {
+                    "id": "ID",
+                    "domain": "Domain",
+                    "total": "Total",
+                    "last": "Last"
+                },
+                "issueColumns": {
+                    "id": "ID",
+                    "level": "Level",
+                    "message": "Message",
+                    "extra": "Extra"
+                },
+                "ranges": [
+                    {
+                        "value": "0.5h",
+                        "label": "0.5h"
+                    },
+                    {
+                        "value": "1h",
+                        "label": "1h"
+                    },
+                    {
+                        "value": "4h",
+                        "label": "4h"
+                    },
+                    {
+                        "value": "8h",
+                        "label": "8h"
+                    },
+                    {
+                        "value": "24h",
+                        "label": "24h"
+                    }
+                ],
+                "bufferLabel": "Buffer",
+                "totalLabel": "Total",
+                "bufferAria": "Log buffer size",
+                "totalAria": "Total logs",
+                "footerBadgeAria": "Log buffer and total"
+            },
+            "system": {
+                "title": "System information",
+                "columns": {
+                    "id": "ID",
+                    "key": "Key",
+                    "value": "Value"
+                }
+            },
+            "service": {
+                "title": "Service resources",
+                "empty": "Metrics for this resource are on the way.",
+                "resources": [
+                    {
+                        "value": "cpu",
+                        "label": "CPU"
+                    },
+                    {
+                        "value": "ram",
+                        "label": "RAM"
+                    },
+                    {
+                        "value": "io",
+                        "label": "IO"
+                    },
+                    {
+                        "value": "gc",
+                        "label": "GC"
+                    },
+                    {
+                        "value": "heap",
+                        "label": "Heap"
+                    },
+                    {
+                        "value": "goroutine",
+                        "label": "Goroutine"
+                    },
+                    {
+                        "value": "bridge",
+                        "label": "Bridge"
+                    }
+                ],
+                "pidLabel": "PID",
+                "pidAria": "Process id",
+                "columns": {
+                    "id": "ID",
+                    "metrics": "Metrics",
+                    "value": "Value"
+                },
+                "interval": "10s",
+                "bridge": {
+                    "selectAria": "Bridge service",
+                    "services": [
+                        {
+                            "value": "node",
+                            "label": "node"
+                        },
+                        {
+                            "value": "proxy-worker",
+                            "label": "proxy-worker"
+                        },
+                        {
+                            "value": "automation",
+                            "label": "automation"
+                        }
+                    ]
+                }
+            }
+        },
+        "about": {
+            "appName": "Automan",
+            "description": "A desktop workspace for proxy, automation and service insight.",
+            "properties": {
+                "label": {
+                    "version": "Version",
+                    "buildTime": "Build time",
+                    "buildHash": "Build Hash",
+                    "license": "License",
+                    "repository": "Repository"
+                }
+            },
+            "actions": [
+                {
+                    "id": "update",
+                    "icon": "refresh-cw",
+                    "label": "Check update"
+                },
+                {
+                    "id": "coffee",
+                    "icon": "coffee",
+                    "label": "Buy a coffee"
+                }
+            ]
+        }
     },
     "proxy": {
         "title": "Proxy",

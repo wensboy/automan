@@ -1,38 +1,8 @@
 import * as React from "react"
-import {
-  AudioWaveform,
-  BellIcon,
-  ChartColumnIcon,
-  CheckIcon,
-  ClipboardListIcon,
-  Command,
-  DatabaseIcon,
-  GalleryVerticalEnd,
-  GlobeIcon,
-  HelpCircleIcon,
-  HouseIcon,
-  InfoIcon,
-  KeyboardIcon,
-  LayoutTemplateIcon,
-  LinkIcon,
-  LockIcon,
-  MenuIcon,
-  MessageCircleIcon,
-  PaletteIcon,
-  RadarIcon,
-  RouteIcon,
-  ScrollText,
-  SearchIcon,
-  ServerIcon,
-  SettingsIcon,
-  ShieldCheckIcon,
-  VideoIcon,
-  WorkflowIcon,
-  WrenchIcon,
-  ZapIcon,
-  type LucideIcon,
-} from "lucide-react"
 
+import type { LucideIcon } from "lucide-react"
+
+import { resolveIcon } from "@/lib/icons"
 import { staticStore } from "@/lib/static-data"
 import type { StaticPatch, StaticValue, StaticView } from "@/static/types/static"
 import type { SidebarStatic } from "@/static/types/sidebar"
@@ -49,48 +19,6 @@ import type { SidebarStatic } from "@/static/types/sidebar"
  */
 
 /** 图标名 (kebab-case, 与 json 对齐) -> 组件: 显式登记, 只打包用到的图标。 */
-const iconRegistry: Record<string, LucideIcon> = {
-  "audio-waveform": AudioWaveform,
-  bell: BellIcon,
-  "chart-column": ChartColumnIcon,
-  check: CheckIcon,
-  "clipboard-list": ClipboardListIcon,
-  database: DatabaseIcon,
-  globe: GlobeIcon,
-  info: InfoIcon,
-  keyboard: KeyboardIcon,
-  "layout-template": LayoutTemplateIcon,
-  link: LinkIcon,
-  lock: LockIcon,
-  menu: MenuIcon,
-  "message-circle": MessageCircleIcon,
-  palette: PaletteIcon,
-  server: ServerIcon,
-  "shield-check": ShieldCheckIcon,
-  video: VideoIcon,
-  zap: ZapIcon,
-  command: Command,
-  "gallery-vertical-end": GalleryVerticalEnd,
-  "help-circle": HelpCircleIcon,
-  house: HouseIcon,
-  radar: RadarIcon,
-  route: RouteIcon,
-  "scroll-text": ScrollText,
-  search: SearchIcon,
-  settings: SettingsIcon,
-  workflow: WorkflowIcon,
-  wrench: WrenchIcon,
-}
-
-/** 解析图标名; 未登记视为数据错误, 直接暴露 (构建期数据, 不静默兜底)。 */
-function resolveIcon(name: string): LucideIcon {
-  const icon = iconRegistry[name]
-  if (!icon) {
-    throw new Error(`static/default/sidebar.json: 未登记的图标 "${name}"`)
-  }
-  return icon
-}
-
 /** 原始数据 -> 消费端形态 (图标名解析为组件)。 */
 function parseSidebar(raw: StaticValue<"sidebar"> | undefined): SidebarStatic {
   if (!raw) {

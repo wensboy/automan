@@ -1,0 +1,15 @@
+{
+    "meta": {
+        "namespace": "conf/analysis"
+    },
+    "sampleIntervalMs": 10000,
+    "windowPoints": 30,
+    "issueLimit": 200,
+    "traceQueue": 2048,
+    "prune": {
+        "proxyRows": 50000,
+        "logRows": 200000,
+        "bridgeRows": 50000,
+        "maxAgeHours": 168
+    }
+}

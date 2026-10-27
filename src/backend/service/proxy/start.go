@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	domainanalysis "github.com/wensboy/automan/backend/domain/analysis"
 	domainconfig "github.com/wensboy/automan/backend/domain/config"
 	domaincontext "github.com/wensboy/automan/backend/domain/context"
 	domainlog "github.com/wensboy/automan/backend/domain/log"
@@ -398,6 +399,7 @@ func (s *Service) Start(_ domaincontext.Context, ids []string) (StartResult, err
 		}
 		s.index.claim(row.ID, req.BaseDir, req.Port, req.UIPort)
 		s.notify(domainnotice.LevelSuccess, "proxy", "Proxy started", row.Name)
+		s.recordProxy(domainanalysis.ProxyEvent{ProxyID: row.ID, Name: row.Name, Listen: target, Action: domainanalysis.ActionStart, WorkspaceID: s.workspaceID()})
 		s.info("proxy: started", logkit.F("id", row.ID), logkit.F("name", row.Name),
 			logkit.F("port", req.Port), logkit.F("uiport", req.UIPort), logkit.F("dir", req.BaseDir))
 		result.Items = append(result.Items, StartItem{
@@ -441,6 +443,7 @@ func (s *Service) Stop(_ domaincontext.Context, ids []string) error {
 		s.index.release(row.ID)
 		s.info("proxy: stopped", logkit.F("id", row.ID), logkit.F("name", row.Name))
 		s.notify(domainnotice.LevelSuccess, "proxy", "Proxy stopped", row.Name)
+		s.recordProxy(domainanalysis.ProxyEvent{ProxyID: row.ID, Name: row.Name, Listen: row.Target, Action: domainanalysis.ActionStop, WorkspaceID: s.workspaceID()})
 	}
 	return firstErr
 }

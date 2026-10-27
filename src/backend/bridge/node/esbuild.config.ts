@@ -2,6 +2,8 @@ import { build, context, type BuildOptions } from 'esbuild';
 
 // 两个入口: index(守护进程主体) + worker(pfork 启动 whistle 的脚本)。
 // worker 必须是独立文件: pfork 以 `node <script>` 方式加载, 不能内联到单文件里。
+// 用 .cts(CJS) 而不是 .ts: 包是 "type": "module", 在 .ts 里写 module.exports 会被
+// esbuild 判定为 ESM 中的 CommonJS 变量(commonjs-variable-in-esm 警告), .cts 明确是 CJS。
 const common: BuildOptions = {
   bundle: true,
   platform: 'node',
@@ -25,7 +27,7 @@ const options: BuildOptions[] = [
   },
   {
     ...common,
-    entryPoints: ['src/packages/proxy/worker.ts'],
+    entryPoints: ['src/packages/proxy/worker.cts'],
     outfile: 'dist/worker.cjs',
     format: 'cjs',
   },

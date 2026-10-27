@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	domainanalysis "github.com/wensboy/automan/backend/domain/analysis"
 	domainconfig "github.com/wensboy/automan/backend/domain/config"
 	domaincontext "github.com/wensboy/automan/backend/domain/context"
 	"github.com/wensboy/automan/backend/domain/key"
@@ -114,6 +115,8 @@ type Service struct {
 	notifier domainnotice.Publisher
 	// settings 是用户设置存储(代理上限/启动超时来自 settings.user)
 	settings domainsettings.Store
+	// analysis 收 proxy 操作追踪(可为 nil)
+	analysis domainanalysis.Recorder
 	// opMu 串行化启停: header 批量与行菜单可能**同时**发起(不同入口),
 	// 并发会让同一实例被"启动中又被停止"或重复 claim, 极端情况下进程层面出错。
 	// 见 docs/design/v23.md §26。
@@ -225,6 +228,7 @@ func (s *Service) Create(_ domaincontext.Context, input Input) (Proxy, error) {
 
 	s.info("proxy: created", logkit.F("id", id), logkit.F("name", normalized.Name), logkit.F("target", normalized.Target))
 	s.notify(domainnotice.LevelSuccess, "proxy", "Proxy created", normalized.Name)
+	s.recordProxy(domainanalysis.ProxyEvent{ProxyID: id, Name: normalized.Name, Listen: normalized.Target, Action: domainanalysis.ActionCreate, WorkspaceID: s.workspaceID()})
 	return s.mustGet(id)
 }
 
@@ -267,6 +271,7 @@ func (s *Service) Update(_ domaincontext.Context, id string, input Input) (Proxy
 	s.info("proxy: updated", logkit.F("id", id), logkit.F("name", normalized.Name),
 		logkit.F("fields", strings.Join(changedFields(current, normalized), ",")))
 	s.notify(domainnotice.LevelSuccess, "proxy", "Proxy updated", normalized.Name)
+	s.recordProxy(domainanalysis.ProxyEvent{ProxyID: id, Name: normalized.Name, Listen: normalized.Target, Action: domainanalysis.ActionUpdate, WorkspaceID: s.workspaceID()})
 	return s.mustGet(id)
 }
 
@@ -292,6 +297,7 @@ func (s *Service) Delete(_ domaincontext.Context, id string) error {
 	}
 	s.info("proxy: deleted", logkit.F("id", id), logkit.F("name", current.Name))
 	s.notify(domainnotice.LevelSuccess, "proxy", "Proxy deleted", current.Name)
+	s.recordProxy(domainanalysis.ProxyEvent{ProxyID: current.ID, Name: current.Name, Listen: current.Target, Action: domainanalysis.ActionDelete, WorkspaceID: s.workspaceID()})
 	return nil
 }
 
@@ -563,6 +569,19 @@ func newID() string {
 	buf := make([]byte, 8)
 	_, _ = rand.Read(buf)
 	return fmt.Sprintf("%013x%s", time.Now().UnixMilli(), hex.EncodeToString(buf))
+}
+
+// WithAnalysis 注入操作追踪(可为 nil)。
+func (s *Service) WithAnalysis(recorder domainanalysis.Recorder) *Service {
+	s.analysis = recorder
+	return s
+}
+
+// recordProxy 写一条操作追踪(异步由 analysis 消费)。
+func (s *Service) recordProxy(event domainanalysis.ProxyEvent) {
+	if s.analysis != nil {
+		s.analysis.RecordProxy(event)
+	}
 }
 
 // WithSettings 注入用户设置: 代理数量/批量启动/并发上限与启动超时来自 settings.user。

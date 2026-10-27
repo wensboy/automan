@@ -1,0 +1,17 @@
+{
+    "meta": {
+        "namespace": "conf/about"
+    },
+    "appName": "Automan",
+    "description": "A desktop workspace for proxy, automation and service insight.",
+    "properties": {
+        "version": "0.1.0",
+        "buildTime": "",
+        "buildHash": "",
+        "license": [
+            "MIT",
+            "https://github.com/wensboy/automan/blob/main/LICENSE"
+        ],
+        "repository": "https://github.com/wensboy/automan"
+    }
+}

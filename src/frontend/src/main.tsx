@@ -13,6 +13,7 @@ import { ensureLogPolling } from "@/store/logs"
 
 import "./index.css"
 
+
 function NoticeBridge() {
   React.useEffect(() => {
     // 日志拉取是 app 级: 页面没打开也要累积(页面只负责渲染)

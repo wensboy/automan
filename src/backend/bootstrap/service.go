@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io/fs"
 
+	domainanalysis "github.com/wensboy/automan/backend/domain/analysis"
 	domainconfig "github.com/wensboy/automan/backend/domain/config"
 	"github.com/wensboy/automan/backend/domain/event"
 	domainlog "github.com/wensboy/automan/backend/domain/log"
@@ -12,8 +13,11 @@ import (
 	bridgeengine "github.com/wensboy/automan/backend/engine/bridge"
 	rtengine "github.com/wensboy/automan/backend/engine/runtime"
 	"github.com/wensboy/automan/backend/internal/kits/enginekit"
+	"github.com/wensboy/automan/backend/internal/kits/logkit"
 	"github.com/wensboy/automan/backend/internal/kits/schemakit"
 	"github.com/wensboy/automan/backend/internal/kits/srvkit"
+	serviceabout "github.com/wensboy/automan/backend/service/about"
+	serviceanalysis "github.com/wensboy/automan/backend/service/analysis"
 	servicecommand "github.com/wensboy/automan/backend/service/command"
 	servicehelp "github.com/wensboy/automan/backend/service/help"
 	servicenotice "github.com/wensboy/automan/backend/service/notice"
@@ -143,6 +147,39 @@ func registerServices(deps serviceDeps) (func(), error) {
 		return nil, err
 	}
 
+	// About: application.json(非空优先) + 构建注入(兜底)
+	aboutSvc := serviceabout.New().WithConfig(deps.provider)
+	if err := srvkit.Register(deps.runtime, serviceabout.Key, aboutSvc); err != nil {
+		return nil, err
+	}
+
+	// 分析: trace 写入 + 聚合 + 采样(失败不阻断主链)
+	analysisSvc := serviceanalysis.New().
+		WithConfig(deps.provider).
+		WithStore(engines.db).
+		WithLogger(engines.logger)
+	if streamLogger, ok := enginekit.Of[domainlog.Logger](deps.runtime, "log"); ok {
+		if streamer, ok := streamLogger.(domainlog.Streamer); ok {
+			if streamErr := analysisSvc.AttachLogStream(streamer); streamErr != nil {
+				engines.logger.Deliver(logkit.New(domainlog.LevelWarn, "analysis: attach log stream failed", logkit.F("err", streamErr)))
+			}
+		}
+	}
+	if engines.ebus != nil {
+		engines.ebus.Subscribe(event.TopicBridgeConnected, func(payload any) {
+			analysisSvc.RecordBridge(domainanalysis.BridgeEvent{Service: "node", OK: true})
+		})
+		engines.ebus.Subscribe(event.TopicBridgeDisconnected, func(payload any) {
+			analysisSvc.RecordBridge(domainanalysis.BridgeEvent{Service: "node", OK: false})
+		})
+	}
+	if analysisErr := analysisSvc.Init(); analysisErr != nil {
+		engines.logger.Deliver(logkit.New(domainlog.LevelWarn, "analysis: init failed", logkit.F("err", analysisErr)))
+	}
+	if err := srvkit.Register(deps.runtime, serviceanalysis.Key, analysisSvc); err != nil {
+		return nil, err
+	}
+
 	// 代理: 模板/basedir 由服务内部经数据源读取(v19 §12); 数据按用户/工作区收束
 	proxySrv := serviceproxy.New().
 		WithStore(engines.db).
@@ -151,6 +188,7 @@ func registerServices(deps serviceDeps) (func(), error) {
 		WithConfig(deps.provider).
 		WithSettings(engines.settings).
 		WithNotice(noticeSvc).
+		WithAnalysis(analysisSvc).
 		WithEventBus(engines.ebus)
 	// 数据根: 供相对 basedir/storage 解析成绝对路径(否则会成为子进程 cwd 而导致 ENOENT)
 	if engines.rooter != nil {

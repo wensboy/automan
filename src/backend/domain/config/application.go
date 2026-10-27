@@ -7,6 +7,8 @@ type Application struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Version     string `json:"version"`
+	License     string `json:"license"`
+	Repository  string `json:"repository"`
 }
 
 var (
