@@ -55,16 +55,19 @@ export default function NoticeItem({
       <div className="mt-2 space-y-1">
         {/* 标题是主信息: 为空时不渲染这一行(避免出现"有卡片没内容"的空壳) */}
         {notice.title ? (
-          <p className={
-            cn("truncate text-sm font-medium", !expanded && "line-clamp-2")
-          }>
+          <p
+            className={cn(
+              "text-sm font-medium break-words",
+              expanded ? "whitespace-pre-wrap" : "line-clamp-2",
+            )}
+          >
             {notice.title}
           </p>
         ) : null}
         {notice.content ? (
           <p
             className={cn(
-              "text-xs text-muted-foreground",
+              "text-xs text-muted-foreground break-words",
               expanded ? "whitespace-pre-wrap" : "line-clamp-2",
             )}
           >
