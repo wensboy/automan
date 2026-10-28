@@ -49,6 +49,16 @@ l3:
 - 所有的测试都需要设置最大超时时间避免无止境的等待.
 - 永远不要针对大仓库做 tsc 的编译检查, 避免 io 和 cpu 瞬间打满.
 
+## 领域规范
+
+|领域|说明|路径|
+|:--:|:--:|:--|
+| settings | 关于 runtime settings, user settings 相关需求处理 | [go](./workflow/settings.md) |
+| probe | 探针查 bug | [go](./workflow/probe.md) |
+| migration | 数据库迁移规范 | [go](./workflow/migration.md) |
+| backend | 后端处理规范 | [go](./workflow/backend.md) |
+| frontend | 前端处理规范 | [go](./workflow/frontend.md) |
+
 ## 选择
 
 1. json: 配置, kv值防硬编码, 批量数据条目.
