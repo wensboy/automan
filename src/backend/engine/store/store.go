@@ -29,6 +29,8 @@ const (
 	defaultMaxSize   = 64 << 20
 )
 
+// 错误哨兵(供 handler 与调用方判定).
+
 // Engine 是指令式 IO 引擎, 实现 domain/store 的 Store/Registrar/Statser.
 type Engine struct {
 	queue *dispatch.Queue

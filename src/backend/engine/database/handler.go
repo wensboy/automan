@@ -15,6 +15,12 @@ import (
 	"github.com/wensboy/automan/backend/internal/cast"
 )
 
+// 错误哨兵: 参数类型不符 / 空事务.
+var (
+	errBadArgs = errors.New("database: invalid task args")
+	errNoSteps = errors.New("database: tx requires at least one step")
+)
+
 func (e *Engine) handlers() map[domainstore.Cmd]domainstore.Handler {
 	return map[domainstore.Cmd]domainstore.Handler{
 		domainstore.CmdExec:  e.exec,
@@ -192,8 +198,3 @@ func sliceLen(v any) int {
 	}
 	return 0
 }
-
-var (
-	errBadArgs = errors.New("database: invalid task args")
-	errNoSteps = errors.New("database: tx requires at least one step")
-)

@@ -24,15 +24,18 @@ import (
 	"github.com/wensboy/automan/backend/internal/kits/logkit"
 )
 
-// Key 是用户服务在 srvs 中的键.
-var Key = key.New[*Service]("service.user")
-
-// 校验上限.
+// 校验上限与固定列.
 const (
 	minUsernameLen = 3
 	maxUsernameLen = 32
 	maxNicknameLen = 64
+
+	// selectColumns 是用户读取的固定列(避免各查询列顺序漂移).
+	selectColumns = `SELECT id, username, nickname, created_at, updated_at FROM users`
 )
+
+// Key 是用户服务在 srvs 中的键.
+var Key = key.New[*Service]("service.user")
 
 // User 是用户行(对前端; 不含口令).
 type User struct {
@@ -72,7 +75,6 @@ type Service struct {
 	newID    func() string
 }
 
-// New 创建用户服务.
 // New 创建用户服务: 只做基础初始化; 外部依赖经 WithXxx 链式注入。
 func New() *Service {
 	return &Service{now: time.Now, newID: newID}
@@ -86,8 +88,15 @@ func (s *Service) WithLogger(logger domainlog.Logger) *Service { s.logger = logg
 
 // List 返回满足条件的当前页与总数.
 func (s *Service) List(_ domaincontext.Context, query Query) (Page, error) {
-	where, args := buildFilter(query)
-	total, err := s.count(where, args)
+	where := []string{"deleted_at = 0"}
+	args := []any{}
+	if keyword := strings.TrimSpace(query.Search); keyword != "" {
+		where = append(where, "(username LIKE ? OR nickname LIKE ?)")
+		like := "%" + keyword + "%"
+		args = append(args, like, like)
+	}
+	clause := strings.Join(where, " AND ")
+	total, err := s.count(clause, args)
 	if err != nil {
 		return Page{}, err
 	}
@@ -107,7 +116,7 @@ func (s *Service) List(_ domaincontext.Context, query Query) (Page, error) {
 
 	items := []User{}
 	listArgs := append(append([]any{}, args...), pageSize, offset)
-	if _, err := s.query(&items, selectColumns+` WHERE `+where+` ORDER BY updated_at DESC LIMIT ? OFFSET ?`, listArgs...); err != nil {
+	if _, err := s.query(&items, selectColumns+` WHERE `+clause+` ORDER BY updated_at DESC LIMIT ? OFFSET ?`, listArgs...); err != nil {
 		return Page{}, err
 	}
 	return Page{Items: items, Total: total}, nil
@@ -223,19 +232,6 @@ func (s *Service) ResetPassword(_ domaincontext.Context, id, newPassword string)
 }
 
 // ---- 内部: 查询与校验 ----
-
-const selectColumns = `SELECT id, username, nickname, created_at, updated_at FROM users`
-
-func buildFilter(query Query) (string, []any) {
-	where := []string{"deleted_at = 0"}
-	args := []any{}
-	if keyword := strings.TrimSpace(query.Search); keyword != "" {
-		where = append(where, "(username LIKE ? OR nickname LIKE ?)")
-		like := "%" + keyword + "%"
-		args = append(args, like, like)
-	}
-	return strings.Join(where, " AND "), args
-}
 
 // validate 归一化并校验入参; requirePassword 为 true 时校验口令(创建).
 func validate(input Input, requirePassword bool) (Input, error) {

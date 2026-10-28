@@ -6,23 +6,6 @@ import (
 	"github.com/wensboy/automan/backend/domain/key"
 )
 
-// About 映射 data/conf/about.json(程序自身信息的唯一来源)。
-type About struct {
-	AppName     string          `json:"appName"`
-	Description string          `json:"description"`
-	Properties  AboutProperties `json:"properties"`
-}
-
-// AboutProperties 是 about 页面的属性集合。
-// License 为 [名称, 链接] 二元组; buildTime/buildHash 允许留空, 由构建注入兜底。
-type AboutProperties struct {
-	Version    string   `json:"version"`
-	BuildTime  string   `json:"buildTime"`
-	BuildHash  string   `json:"buildHash"`
-	License    []string `json:"license"`
-	Repository string   `json:"repository"`
-}
-
 // AboutKey 取 conf/about 命名空间。
 var AboutKey = key.New[About]("conf/about")
 
@@ -36,6 +19,22 @@ var (
 	buildTime    string
 	buildHash    string
 )
+
+// About 映射 data/conf/about.json(程序自身信息的唯一来源)。
+type About struct {
+	AppName     string          `json:"appName"`
+	Description string          `json:"description"`
+	Properties  AboutProperties `json:"properties"`
+}
+
+// AboutProperties 是 about 页面的属性集合; License 为 [名称, 链接] 二元组。
+type AboutProperties struct {
+	Version    string   `json:"version"`
+	BuildTime  string   `json:"buildTime"`
+	BuildHash  string   `json:"buildHash"`
+	License    []string `json:"license"`
+	Repository string   `json:"repository"`
+}
 
 // BuildInfo 是构建信息(注入优先, 缺失回落 go build info)。
 type BuildInfo struct {

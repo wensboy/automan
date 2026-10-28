@@ -10,6 +10,9 @@ import (
 	"github.com/wensboy/automan/backend/internal/kits/configkit"
 )
 
+// Key 是服务注册键。
+var Key = key.New[*Service]("about")
+
 // Properties 是展示所需的属性值(与 conf/about.properties 一一对应)。
 type Properties struct {
 	Version    string `json:"version"`
@@ -32,10 +35,7 @@ type Service struct {
 	provider domainconfig.Provider
 }
 
-// Key 是服务注册键。
-var Key = key.New[*Service]("about")
-
-// New 创建服务(无参: 依赖通过 With* 注入)。
+// New 创建服务(依赖通过 With* 注入)。
 func New() *Service { return &Service{} }
 
 // WithConfig 注入配置读取器(conf/about)。
@@ -49,7 +49,7 @@ func (s *Service) Info() Info {
 	cfg, _ := configkit.Get[domainconfig.About](s.provider, domainconfig.AboutKey)
 	build := domainconfig.Build()
 
-	license, licenseURL := "", ""
+	var license, licenseURL string
 	if len(cfg.Properties.License) > 0 {
 		license = cfg.Properties.License[0]
 	}
@@ -71,7 +71,7 @@ func (s *Service) Info() Info {
 	}
 }
 
-// pick 返回第一个非空值(配置优先, 构建注入兜底)。
+// pick 返回第一个非空值。
 func pick(values ...string) string {
 	for _, value := range values {
 		if value != "" {

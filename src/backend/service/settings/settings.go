@@ -20,7 +20,6 @@ import (
 
 	domaincontext "github.com/wensboy/automan/backend/domain/context"
 	"github.com/wensboy/automan/backend/domain/key"
-	domainnotice "github.com/wensboy/automan/backend/domain/notice"
 	domainsettings "github.com/wensboy/automan/backend/domain/settings"
 	domainstore "github.com/wensboy/automan/backend/domain/store"
 	apperr "github.com/wensboy/automan/backend/internal/err"
@@ -42,7 +41,6 @@ type Entry struct {
 
 // Service 编排设置读写; 引擎与 schema 键表在构造时注入.
 type Service struct {
-	notifier domainnotice.Publisher
 	store    domainsettings.Store
 	files    domainstore.Store // 用户目录(动态选项的文件来源, 例 theme.json)
 	data     fs.FS             // 内嵌资源(缺省 font.json 等)
@@ -350,23 +348,19 @@ func matches(field schemakit.Field, value any) bool {
 		}
 		return false
 	case schemakit.KindArray:
-		return arrayMatches(field.Items, value)
+		rv := reflect.ValueOf(value)
+		if rv.Kind() != reflect.Slice {
+			return false
+		}
+		for i := 0; i < rv.Len(); i++ {
+			if !matchesScalar(string(field.Items), rv.Index(i).Interface()) {
+				return false
+			}
+		}
+		return true
 	default:
 		return false
 	}
-}
-
-func arrayMatches(items schemakit.Kind, value any) bool {
-	rv := reflect.ValueOf(value)
-	if rv.Kind() != reflect.Slice {
-		return false
-	}
-	for i := 0; i < rv.Len(); i++ {
-		if !matchesScalar(string(items), rv.Index(i).Interface()) {
-			return false
-		}
-	}
-	return true
 }
 
 // matchesScalar 判定标量类型; JSON 解出的数字统一为 float64, 同时放行整型写法。
@@ -388,18 +382,4 @@ func matchesScalar(kind string, value any) bool {
 	default:
 		return false
 	}
-}
-
-// WithNotice 注入业务提示出口(可为 nil)。
-func (s *Service) WithNotice(publisher domainnotice.Publisher) *Service {
-	s.notifier = publisher
-	return s
-}
-
-// notify 投递一条业务提示(未注入时静默跳过)。
-func (s *Service) notify(level domainnotice.Level, label, title, content string) {
-	if s.notifier == nil {
-		return
-	}
-	_, _ = s.notifier.Push(domainnotice.Entry{Level: string(level), Label: label, Title: title, Content: content})
 }

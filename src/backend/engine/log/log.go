@@ -37,6 +37,16 @@ const (
 	defaultStreamQueueSize = 2048
 
 	mib = 1 << 20
+
+	// recentCapacity 是回放环容量(约等于前端一次可回看的历史条数).
+	recentCapacity = 1000
+)
+
+// 错误哨兵: 依赖引擎缺失 / 输出不可用.
+var (
+	errConfigUnavailable   = errors.New(`log: engine "config" unavailable`)
+	errStoreUnavailable    = errors.New(`log: engine "store" unavailable`)
+	errEventBusUnavailable = errors.New(`log: engine "eventbus" unavailable`)
 )
 
 // Engine 是统一日志引擎, 实现 domain/log 的 Logger/Registrar/Statser.
@@ -266,15 +276,6 @@ func format(r domainlog.Record) string {
 	}
 	return b.String()
 }
-
-var (
-	errConfigUnavailable   = errors.New(`log: engine "config" unavailable`)
-	errStoreUnavailable    = errors.New(`log: engine "store" unavailable`)
-	errEventBusUnavailable = errors.New(`log: engine "eventbus" unavailable`)
-)
-
-// recentCapacity 是回放环容量(约等于前端一次可回看的历史条数)。
-const recentCapacity = 1000
 
 // recentEntry 是带回放序号的一条记录。
 type recentEntry struct {

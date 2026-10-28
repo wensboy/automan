@@ -25,14 +25,14 @@ import (
 // defaultCapacity 是队列上限: 超出丢最旧(提示不是审计)。
 const defaultCapacity = 200
 
-// Entry 复用领域契约(绑定层字段保持一致)。
-type Entry = domainnotice.Entry
+// Key 是提示服务在 srvs 中的键。
+var Key = key.New[*Service]("service.notice")
 
 // 编译期断言: 本服务实现领域契约。
 var _ domainnotice.Publisher = (*Service)(nil)
 
-// Key 是提示服务在 srvs 中的键.
-var Key = key.New[*Service]("service.notice")
+// Entry 复用领域契约(绑定层字段保持一致)。
+type Entry = domainnotice.Entry
 
 // Service 持有提示队列与广播能力.
 type Service struct {
@@ -104,13 +104,14 @@ func (s *Service) Push(item domainnotice.Entry) (domainnotice.Entry, error) {
 
 	s.mu.Lock()
 	s.seq++
+	now := s.now().UnixMilli()
 	created := domainnotice.Entry{
-		ID:      fmt.Sprintf("%d-%d", s.now().UnixMilli(), s.seq),
+		ID:      fmt.Sprintf("%d-%d", now, s.seq),
 		Level:   level,
 		Label:   strings.TrimSpace(entry.Label),
 		Title:   title,
 		Content: strings.TrimSpace(entry.Content),
-		At:      s.now().UnixMilli(),
+		At:      now,
 	}
 	s.items = append([]domainnotice.Entry{created}, s.items...)
 	if len(s.items) > s.capacity {

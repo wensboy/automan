@@ -1,14 +1,12 @@
 package analysis
 
 import (
+	"os"
+
 	domainanalysis "github.com/wensboy/automan/backend/domain/analysis"
 	domainlog "github.com/wensboy/automan/backend/domain/log"
 	"github.com/wensboy/automan/backend/internal/kits/logkit"
 )
-
-func domainNowMillis() int64 { return domainanalysis.NowMillis() }
-
-func fieldString(key, value string) domainlog.Field { return logkit.F(key, value) }
 
 func fieldErr(err error) domainlog.Field {
 	if err == nil {
@@ -34,7 +32,7 @@ func (s *Service) Snapshot(bridgeService string) domainanalysis.ServiceSnapshot 
 
 	return domainanalysis.ServiceSnapshot{
 		IntervalMs: s.params.SampleInterval.Milliseconds(),
-		PID:        pidOf(),
+		PID:        os.Getpid(),
 		Resources:  resources,
 		Bridge:     s.bridgeMetric(bridgeService),
 	}

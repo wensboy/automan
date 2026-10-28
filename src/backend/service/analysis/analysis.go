@@ -33,6 +33,9 @@ const (
 	defaultMaxAgeHour = 168
 )
 
+// Key 是服务注册键。
+var Key = key.New[*Service]("analysis")
+
 // Params 是运行参数(来自 conf/analysis, 缺省兜底)。
 type Params struct {
 	SampleInterval time.Duration
@@ -53,7 +56,6 @@ type Service struct {
 
 	// proxy 事件队列(有界; 满则丢弃并计数)
 	proxyQueue chan domainanalysis.ProxyEvent
-	dropped    atomicCounter
 
 	mu           sync.RWMutex
 	logTotal     int64
@@ -95,7 +97,7 @@ func (s *Service) WithStaticBuffer(capacity int) *Service {
 // WithParams 应用配置(非法值回落缺省)。
 func (s *Service) WithParams(cfg domainconfig.Analysis) *Service {
 	s.params = Params{
-		SampleInterval: durationMs(cfg.SampleIntervalMs, defaultSampleMs),
+		SampleInterval: time.Duration(positive(cfg.SampleIntervalMs, defaultSampleMs)) * time.Millisecond,
 		WindowPoints:   positive(cfg.WindowPoints, defaultWindow),
 		IssueLimit:     positive(cfg.IssueLimit, defaultIssueLimit),
 		ProxyRows:      positive(cfg.Prune.ProxyRows, defaultProxyRows),
@@ -131,7 +133,7 @@ func (s *Service) RecordProxy(event domainanalysis.ProxyEvent) {
 	select {
 	case s.proxyQueue <- event:
 	default:
-		s.dropped.add(1)
+		// 队列满: 直接丢弃(不保留只写不读的计数)
 	}
 }
 
@@ -185,23 +187,6 @@ type errorString string
 
 func (e errorString) Error() string { return string(e) }
 
-type atomicCounter struct {
-	mu sync.Mutex
-	n  int64
-}
-
-func (c *atomicCounter) add(delta int64) {
-	c.mu.Lock()
-	c.n += delta
-	c.mu.Unlock()
-}
-
-func (c *atomicCounter) get() int64 {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.n
-}
-
 func (s *Service) warn(msg string, fields ...domainlog.Field) {
 	if s.logger == nil {
 		return
@@ -249,10 +234,6 @@ func positive(value, fallback int) int {
 	return fallback
 }
 
-func durationMs(value, fallback int) time.Duration {
-	return time.Duration(positive(value, fallback)) * time.Millisecond
-}
-
 // WithConfig 从 conf 读取参数(读不到用缺省)并注入静态日志缓冲容量。
 func (s *Service) WithConfig(provider domainconfig.Provider) *Service {
 	cfg, _ := configkit.Get[domainconfig.Analysis](provider, domainconfig.AnalysisKey)
@@ -262,6 +243,3 @@ func (s *Service) WithConfig(provider domainconfig.Provider) *Service {
 	}
 	return s
 }
-
-// Key 是服务注册键。
-var Key = key.New[*Service]("analysis")

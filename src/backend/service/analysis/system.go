@@ -15,8 +15,6 @@ import (
 	domainanalysis "github.com/wensboy/automan/backend/domain/analysis"
 )
 
-func pidOf() int { return os.Getpid() }
-
 // SystemInfo 采集平台信息(见 v25 §6)。
 //
 // 无法通过简单原生库实现的项先返回 "-": GPU / WebView 版本 / Display。

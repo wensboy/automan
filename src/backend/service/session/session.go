@@ -33,9 +33,6 @@ import (
 	serviceuser "github.com/wensboy/automan/backend/service/user"
 )
 
-// Key 是会话服务在 srvs 中的键.
-var Key = key.New[*Service]("service.session")
-
 const (
 	// absoluteCap 是会话的绝对上限: 无论怎么续期, 单个会话最多存活 7 天(v18 §11 F).
 	absoluteCap = 7 * 24 * time.Hour
@@ -50,7 +47,13 @@ const (
 	minUsernameLen = 3
 	maxUsernameLen = 32
 	maxNicknameLen = 64
+
+	// userColumns 是用户读取的固定列(所有查询共用, 避免列顺序漂移).
+	userColumns = `SELECT id, username, password, nickname, created_at, updated_at FROM users`
 )
+
+// Key 是会话服务在 srvs 中的键.
+var Key = key.New[*Service]("service.session")
 
 // SignUpInput 是注册入参.
 type SignUpInput struct {
@@ -193,8 +196,10 @@ func (s *Service) refreshConfig() {
 		resumeOnStart: true,
 		slidingExpire: true,
 	}
-	if seconds := toInt2(s.get(keyExpirationS)); seconds > 0 {
-		next.expiration = time.Duration(seconds) * time.Second
+	if value, ok := s.get(keyExpirationS); ok {
+		if seconds := toInt(value); seconds > 0 {
+			next.expiration = time.Duration(seconds) * time.Second
+		}
 	}
 	if value, ok := s.get(keyResumeOnStart); ok {
 		if enabled, ok := value.(bool); ok {
@@ -571,17 +576,7 @@ func toInt(value any) int {
 	}
 }
 
-// toInt2 把 get 的返回值转成 int.
-func toInt2(value any, ok bool) int {
-	if !ok {
-		return 0
-	}
-	return toInt(value)
-}
-
 // ---- 内部: 用户与登录日志的读写 ----
-
-const userColumns = `SELECT id, username, password, nickname, created_at, updated_at FROM users`
 
 func (s *Service) findUserByUsername(username string) (userRow, error) {
 	rows := []userRow{}

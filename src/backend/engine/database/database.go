@@ -36,6 +36,12 @@ const (
 	defaultMaxRows       = 10000
 )
 
+// 错误哨兵: 依赖引擎缺失(组合根装配顺序错误时提前暴露).
+var (
+	errConfigUnavailable = errors.New(`database: engine "config" unavailable`)
+	errLogUnavailable    = errors.New(`database: engine "log" unavailable`)
+)
+
 // Engine 是 database 引擎, 经 dispatch 实现 domain/store 的 Store/Registrar/Statser.
 type Engine struct {
 	queue  *dispatch.Queue
@@ -213,8 +219,3 @@ func (e *Engine) logOp(op, sql string, args []any, dur time.Duration, err error)
 	}
 	e.logger.Deliver(logkit.New(level, op, fields...))
 }
-
-var (
-	errConfigUnavailable = errors.New(`database: engine "config" unavailable`)
-	errLogUnavailable    = errors.New(`database: engine "log" unavailable`)
-)

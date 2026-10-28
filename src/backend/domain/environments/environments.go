@@ -12,6 +12,18 @@ const (
 // 支持的 value 类型。
 var Types = []string{"int", "bool", "float", "string", "array", "object"}
 
+// 领域错误(api 层映射为 apperr)。
+var (
+	ErrInvalidPath  = errors.New("environments: invalid path")
+	ErrExists       = errors.New("environments: already exists")
+	ErrNotFound     = errors.New("environments: not found")
+	ErrDirNotEmpty  = errors.New("environments: directory not empty")
+	ErrInvalidFile  = errors.New("environments: invalid env file")
+	ErrUnknownPlace = errors.New("environments: unknown template placeholder")
+	ErrConflict     = errors.New("environments: duplicate key across files")
+	ErrRecursive    = errors.New("environments: recursive delete is disabled")
+)
+
 // Node 是树上的一个节点(路径为相对 environments 根)。
 type Node struct {
 	Name     string `json:"name"`
@@ -42,15 +54,3 @@ type Document struct {
 type Provider interface {
 	Values(paths ...string) (map[string]string, error)
 }
-
-// 领域错误(api 层映射为 apperr)。
-var (
-	ErrInvalidPath  = errors.New("environments: invalid path")
-	ErrExists       = errors.New("environments: already exists")
-	ErrNotFound     = errors.New("environments: not found")
-	ErrDirNotEmpty  = errors.New("environments: directory not empty")
-	ErrInvalidFile  = errors.New("environments: invalid env file")
-	ErrUnknownPlace = errors.New("environments: unknown template placeholder")
-	ErrConflict     = errors.New("environments: duplicate key across files")
-	ErrRecursive    = errors.New("environments: recursive delete is disabled")
-)

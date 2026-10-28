@@ -1,7 +1,6 @@
 package analysis
 
 import (
-	stdctx "context"
 	"fmt"
 
 	domainanalysis "github.com/wensboy/automan/backend/domain/analysis"
@@ -224,19 +223,13 @@ func joinFields(fields []domainlog.Field) string {
 		if out != "" {
 			out += " "
 		}
-		out += field.Key + "=" + toString(field.Value)
+		text := ""
+		if value, ok := field.Value.(string); ok {
+			text = value
+		}
+		out += field.Key + "=" + text
 	}
 	return out
-}
-
-func toString(value any) string {
-	if value == nil {
-		return ""
-	}
-	if text, ok := value.(string); ok {
-		return text
-	}
-	return ""
 }
 
 // rangeMillis 把前端时间范围映射为毫秒(非法回落 1h)。
@@ -254,5 +247,3 @@ func rangeMillis(key string) int64 {
 		return 60 * 60 * 1000
 	}
 }
-
-var _ = stdctx.Background

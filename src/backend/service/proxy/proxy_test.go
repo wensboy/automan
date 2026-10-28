@@ -364,3 +364,48 @@ func TestListEmptySkipsRowQuery(t *testing.T) {
 		t.Fatalf("应只有 COUNT 与状态聚合两次查询, got %d", len(store.queries))
 	}
 }
+
+// 回归: 带用户过滤时 WHERE 参数顺序必须与占位符一致, 且影响行数为 0 时不能报成功。
+func TestUpdateRespectsUserScopeOrder(t *testing.T) {
+	svc, store, _ := newService()
+	svc.currentUser = func() string { return "u1" }
+	store.row = &Proxy{ID: "p1", Name: "old", Target: "t", Status: StatusStopped, Rules: "{}"}
+
+	if _, err := svc.Update(nil, "p1", Input{Name: "new", Target: "t", Rules: "{}"}); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+	exec := store.lastExec()
+	if !strings.Contains(exec.sql, "user_id = ?") {
+		t.Fatalf("应带用户过滤: %q", exec.sql)
+	}
+	// SET 5 个参数 + WHERE(id, user_id)
+	if len(exec.args) != 7 || exec.args[5] != "p1" || exec.args[6] != "u1" {
+		t.Fatalf("参数顺序应与占位符一致, got %#v", exec.args)
+	}
+
+	store.affected = 0
+	if _, err := svc.Update(nil, "p1", Input{Name: "new2", Target: "t", Rules: "{}"}); err == nil {
+		t.Fatalf("影响行数为 0 时应返回 not found")
+	}
+}
+
+// rules 采用最新模板格式(host/port/uiport/timeout/dnsServer): 越界与非法 JSON 直接拒绝。
+func TestCreateRejectsInvalidRules(t *testing.T) {
+	svc, _, _ := newService()
+
+	cases := []string{
+		`{"port": 70000}`,
+		`{"uiport": 70000}`,
+		`{"timeout": -1}`,
+		`not-json`,
+	}
+	for _, rules := range cases {
+		if _, err := svc.Create(nil, Input{Name: "p", Rules: rules}); err == nil {
+			t.Fatalf("rules=%q 应被拒绝", rules)
+		}
+	}
+
+	if _, err := svc.Create(nil, Input{Name: "ok", Rules: `{"host":"127.0.0.1","port":8899,"uiport":8899,"timeout":30000,"dnsServer":"1.1.1.1"}`}); err != nil {
+		t.Fatalf("合法 rules 应通过: %v", err)
+	}
+}

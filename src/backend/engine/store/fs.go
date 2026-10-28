@@ -12,6 +12,12 @@ import (
 	"github.com/wensboy/automan/backend/internal/cast"
 )
 
+// 错误哨兵: 参数类型不符 / 路径逃逸.
+var (
+	errBadArgs = errors.New("store: invalid task args")
+	errEscaped = errors.New("store: path escapes root")
+)
+
 func (e *Engine) registerFS() error {
 	handlers := map[domainstore.Cmd]domainstore.Handler{
 		domainstore.CmdRead:   e.fsRead,
@@ -187,8 +193,3 @@ func writeAtomic(path string, data []byte) error {
 	}
 	return os.Rename(name, path)
 }
-
-var (
-	errBadArgs = errors.New("store: invalid task args")
-	errEscaped = errors.New("store: path escapes root")
-)

@@ -109,7 +109,7 @@ func (s *Service) Meta(_ domaincontext.Context) (Meta, error) {
 	var meta Meta
 	if err := json.Unmarshal(payload, &meta); err != nil {
 		s.fail("meta.parse", err)
-		return Meta{}, errBadMeta(err)
+		return Meta{}, fmt.Errorf("%w: help meta invalid: %v", apperr.New(apperr.CodeServiceFail), err)
 	}
 	if meta.Entry == "" {
 		meta.Entry = "outline"
@@ -123,7 +123,7 @@ func (s *Service) Meta(_ domaincontext.Context) (Meta, error) {
 func (s *Service) Doc(_ domaincontext.Context, id string) (Doc, error) {
 	trimmed := strings.TrimSpace(id)
 	if trimmed == "" || strings.ContainsAny(trimmed, `/\`) {
-		return Doc{}, errInvalidID(trimmed)
+		return Doc{}, fmt.Errorf("%w: invalid help document id %q", apperr.New(apperr.CodeServiceFail), trimmed)
 	}
 
 	meta, err := s.Meta(nil)
@@ -139,7 +139,7 @@ func (s *Service) Doc(_ domaincontext.Context, id string) (Doc, error) {
 			continue
 		}
 		if len(payload) > maxDocLen {
-			return Doc{}, errTooLarge(rel)
+			return Doc{}, fmt.Errorf("%w: help document %q exceeds %d bytes", apperr.New(apperr.CodeServiceFail), rel, maxDocLen)
 		}
 		s.info("help: doc loaded", logkit.F("id", trimmed), logkit.F("path", rel), logkit.F("bytes", len(payload)))
 		return Doc{ID: trimmed, Label: label, Content: string(payload)}, nil
@@ -190,16 +190,4 @@ func (s *Service) fail(op string, err error) {
 
 func errNotFound(name string) error {
 	return fmt.Errorf("%w: help document %q not found", apperr.New(apperr.CodeNotFound), name)
-}
-
-func errBadMeta(err error) error {
-	return fmt.Errorf("%w: help meta invalid: %v", apperr.New(apperr.CodeServiceFail), err)
-}
-
-func errTooLarge(name string) error {
-	return fmt.Errorf("%w: help document %q exceeds %d bytes", apperr.New(apperr.CodeServiceFail), name, maxDocLen)
-}
-
-func errInvalidID(id string) error {
-	return fmt.Errorf("%w: invalid help document id %q", apperr.New(apperr.CodeServiceFail), id)
 }

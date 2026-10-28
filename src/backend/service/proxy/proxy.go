@@ -128,7 +128,7 @@ type Service struct {
 func New() *Service {
 	return &Service{
 		now: time.Now, newID: newID,
-		proxyRoot: "proxies", startWait: 15 * time.Second, index: newRuntimeIndex(),
+		proxyRoot: "proxies", startWait: 15 * time.Second, index: &runtimeIndex{byID: map[string]string{}, storage: map[string]string{}, ports: map[int]string{}},
 	}
 }
 
@@ -256,11 +256,14 @@ func (s *Service) Update(_ domaincontext.Context, id string, input Input) (Proxy
 	now := s.now().UnixMilli()
 	where, whereArgs := s.userScope("id = ? AND deleted_at = 0")
 	updateArgs := append([]any{normalized.Name, normalized.Target, normalized.Rules, normalized.Description, now, id}, whereArgs...)
-	_, err = s.exec(`UPDATE proxies SET name = ?, target = ?, rules = ?, description = ?, updated_at = ?
+	result, err := s.exec(`UPDATE proxies SET name = ?, target = ?, rules = ?, description = ?, updated_at = ?
         WHERE `+where, updateArgs...)
 	if err != nil {
 		s.fail("update", id, err)
 		return Proxy{}, err
+	}
+	if result.RowsAffected == 0 {
+		return Proxy{}, s.notFound(id)
 	}
 
 	// 改名会换 basedir(<proxies>/<name>): 把旧目录迁过去, 避免历史数据留在旧名下
@@ -352,16 +355,33 @@ func validate(input Input) (Input, error) {
 	if out.Name == "" || len(out.Name) > maxNameLen {
 		return Input{}, invalid(`name must be 1..%d chars`, maxNameLen)
 	}
-	// target 不是用户输入: 始终由 rules 的 host + port 派生(库里的列只是冗余存储, 便于搜索/展示)
-	out.Target = deriveTarget(out.Rules)
-	if len(out.Target) > maxTargetLen {
-		return Input{}, invalid(`target exceeds %d chars (check rules.host/port)`, maxTargetLen)
-	}
 	if len(out.Rules) > maxTextLen {
 		return Input{}, invalid(`rules exceeds %d bytes`, maxTextLen)
 	}
 	if len(out.Description) > maxTextLen {
 		return Input{}, invalid(`description exceeds %d bytes`, maxTextLen)
+	}
+
+	// rules 允许为空({}): 启动时由模板补齐; 一旦提供字段, 按最新模板格式校验
+	if trimmed := strings.TrimSpace(out.Rules); trimmed != "" && trimmed != "{}" {
+		parsed, parseErr := parseRules(trimmed)
+		if parseErr != nil {
+			return Input{}, parseErr
+		}
+		for key, value := range map[string]int{"port": toIntValue(parsed.Port, 0), "uiport": toIntValue(parsed.UIPort, 0)} {
+			if value != 0 && (value < 1 || value > 65535) {
+				return Input{}, invalid(`rules.%s must be 1..65535`, key)
+			}
+		}
+		if parsed.Timeout != nil && toIntValue(parsed.Timeout, 0) < 0 {
+			return Input{}, invalid("rules.timeout must be >= 0")
+		}
+	}
+
+	// target 不是用户输入: 始终由 rules 的 host + port 派生(库里的列只是冗余存储, 便于搜索/展示)
+	out.Target = deriveTarget(out.Rules)
+	if len(out.Target) > maxTargetLen {
+		return Input{}, invalid(`target exceeds %d chars (check rules.host/port)`, maxTargetLen)
 	}
 	return out, nil
 }
@@ -474,22 +494,18 @@ func (s *Service) statusCounts(where string, args []any) (map[string]int, error)
 		if status == "" {
 			continue
 		}
-		counts[status] = toInt(row["total"])
+		switch typed := row["total"].(type) {
+		case int64:
+			counts[status] = int(typed)
+		case int:
+			counts[status] = typed
+		case float64:
+			counts[status] = int(typed)
+		default:
+			counts[status] = 0
+		}
 	}
 	return counts, nil
-}
-
-func toInt(value any) int {
-	switch typed := value.(type) {
-	case int64:
-		return int(typed)
-	case int:
-		return typed
-	case float64:
-		return int(typed)
-	default:
-		return 0
-	}
 }
 
 // ---- 内部: 经 store 的 db 指令访问 sqlite ----

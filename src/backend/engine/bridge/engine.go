@@ -34,7 +34,6 @@ const (
 	defaultHeartbeatGrace = 5000
 	defaultRestartMax     = 32
 	stopGrace             = 3 * time.Second
-	killGrace             = 3 * time.Second
 	backoffBase           = 200 * time.Millisecond
 	backoffMax            = 5 * time.Second
 	// assetScript 是内嵌产物中作为入口的文件名; assetCommand 是拉起它的命令.

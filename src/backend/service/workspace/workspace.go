@@ -25,16 +25,14 @@ import (
 	"github.com/wensboy/automan/backend/internal/kits/logkit"
 )
 
-// Key 是工作区服务在 srvs 中的键.
-var Key = key.New[*Service]("service.workspace")
-
 const (
 	maxNameLen = 64
-	// defaultName 是用户首次使用(或删空后)自动创建的工作区名。
-	defaultName = "Default"
 	// defaultLimit 是未配置 general.workspace.limit 时的兜底上限。
 	defaultLimit = 32
 )
+
+// Key 是工作区服务在 srvs 中的键.
+var Key = key.New[*Service]("service.workspace")
 
 // Workspace 是一个工作区(对前端).
 // 注意: 必须带 db tag —— store 引擎用 sqlx 按列名映射, 缺 tag 会报
@@ -119,17 +117,17 @@ func (s *Service) userID() string {
 	return strings.TrimSpace(s.currentUser())
 }
 
-// List 返回当前用户的工作区(按创建时间升序); 没有则自动创建一个 Default。
+// List 返回当前用户的工作区(按创建时间升序); 不自动创建、不自动选中。
 func (s *Service) List(_ domaincontext.Context) ([]Workspace, error) {
 	uid, err := s.requireUser()
 	if err != nil {
 		return nil, err
 	}
-	items, err := s.list(uid)
-	if err != nil {
+	items := []Workspace{}
+	if _, err := s.query(&items, `SELECT id, name, created_at, updated_at FROM workspaces
+        WHERE user_id = ? AND deleted_at = 0 ORDER BY created_at ASC`, uid); err != nil {
 		return nil, err
 	}
-	// 不自动创建工作区(由用户显式添加); 也不自动选中 —— 未选中时由调用方约束资源操作。
 	return items, nil
 }
 
@@ -211,23 +209,12 @@ func (s *Service) SetCurrent(_ domaincontext.Context, id string) error {
 	return nil
 }
 
-// ---- 内部 ----
-
 func (s *Service) requireUser() (string, error) {
 	uid := s.userID()
 	if uid == "" {
 		return "", invalid("workspace requires a signed-in user")
 	}
 	return uid, nil
-}
-
-func (s *Service) list(userID string) ([]Workspace, error) {
-	items := []Workspace{}
-	if _, err := s.query(&items, `SELECT id, name, created_at, updated_at FROM workspaces
-        WHERE user_id = ? AND deleted_at = 0 ORDER BY created_at ASC`, userID); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 func (s *Service) find(userID, id string) (Workspace, error) {

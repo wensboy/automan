@@ -47,10 +47,9 @@ type serviceEngines struct {
 	logger   domainlog.Logger
 	ebus     event.Bus
 
-	files    domainstore.Store // store 引擎: 用户目录文件读写(动态选项/主题文件)
-	rooter   domainstore.Rooter
-	bridge   *bridgeengine.Engine
-	bridgeOK bool
+	files  domainstore.Store // store 引擎: 用户目录文件读写(动态选项/主题文件)
+	rooter domainstore.Rooter
+	bridge *bridgeengine.Engine
 }
 
 // resolveServiceEngines 解析服务装配所需的全部引擎.
@@ -90,7 +89,6 @@ func resolveServiceEngines(rt *rtengine.Runtime) (serviceEngines, error) {
 	}
 	if bridge, ok := enginekit.Of[*bridgeengine.Engine](rt, "bridge.node"); ok {
 		engines.bridge = bridge
-		engines.bridgeOK = true
 	}
 	return engines, nil
 }
@@ -113,7 +111,7 @@ func registerServices(deps serviceDeps) (func(), error) {
 	noticeSvc := servicenotice.New()
 
 	if err := srvkit.Register(deps.runtime, servicesettings.Key,
-		servicesettings.New().WithNotice(noticeSvc).
+		servicesettings.New().
 			WithStore(engines.settings).
 			WithFiles(engines.files).
 			WithData(deps.data).
@@ -159,7 +157,6 @@ func registerServices(deps serviceDeps) (func(), error) {
 		WithStore(engines.files).
 		WithConfig(deps.provider).
 		WithData(deps.data).
-		WithLogger(engines.logger).
 		WithNotice(noticeSvc)
 	if envErr := envSvc.Init(); envErr != nil {
 		engines.logger.Deliver(logkit.New(domainlog.LevelWarn, "environments: init failed", logkit.F("err", envErr)))
@@ -213,7 +210,7 @@ func registerServices(deps serviceDeps) (func(), error) {
 		WithCurrentUser(sessionSrv.CurrentUserID).
 		WithCurrentWorkspace(func() string { return workspaceSrv.Current(deps.runtime) })
 	// 执行链路: 适配与配表逻辑都在 service/proxy 内部(见 v19 §13)
-	if engines.bridgeOK {
+	if engines.bridge != nil {
 		proxySrv = proxySrv.WithBridge(engines.bridge)
 	}
 	// 启动期保证代理 basedir 存在(它是 node 侧 spawn 的 cwd, 也是 whistle storage 的父目录)

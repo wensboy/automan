@@ -119,12 +119,13 @@ func (s *Service) requireWorkspace() error {
 }
 
 // userScope 给 WHERE 追加用户收束条件(条件放在最前, 参数与条件顺序一致)。
+// userScope 追加用户过滤(放在 where 末尾, 保持调用方参数顺序不变)。
 func (s *Service) userScope(where string) (string, []any) {
 	uid := s.userID()
 	if uid == "" {
 		return where, nil
 	}
-	return "user_id = ? AND " + where, []any{uid}
+	return where + " AND user_id = ?", []any{uid}
 }
 
 // scopeWhere 同 userScope, 但保留已有参数(列表/统计用)。
@@ -240,7 +241,7 @@ func (s *Service) runningItem(row Proxy) (StartItem, error) {
 func (s *Service) Running(_ domaincontext.Context) ([]CaptureTarget, error) {
 	rows := []Proxy{}
 	where, whereArgs := s.userScope("deleted_at = 0 AND status = ?")
-	if _, err := s.query(&rows, selectColumns+` WHERE `+where+` ORDER BY name ASC`, append(whereArgs, StatusRunning)...); err != nil {
+	if _, err := s.query(&rows, selectColumns+` WHERE `+where+` ORDER BY name ASC`, append([]any{StatusRunning}, whereArgs...)...); err != nil {
 		return nil, err
 	}
 
@@ -471,6 +472,9 @@ func (s *Service) prepareStartRequest(row Proxy) (StartRequest, error) {
 	if req.Host == "" {
 		req.Host = "127.0.0.1"
 	}
+	if req.DNS == "" {
+		req.DNS = s.templateRules().DNSServer
+	}
 
 	// port / uiport: 冲突则线性 +100, 再随机(§9 C)
 	req.Port = s.pickPort(req.Host, req.Port, row.ID)
@@ -568,10 +572,6 @@ type runtimeIndex struct {
 	byID    map[string]string // proxy id -> storage
 	storage map[string]string // storage -> proxy id
 	ports   map[int]string    // port/uiport -> proxy id
-}
-
-func newRuntimeIndex() *runtimeIndex {
-	return &runtimeIndex{byID: map[string]string{}, storage: map[string]string{}, ports: map[int]string{}}
 }
 
 func (i *runtimeIndex) claim(id, storage string, ports ...int) {
@@ -700,13 +700,4 @@ func portAvailable(host string, port int) bool {
 	}
 	_ = listener.Close()
 	return true
-}
-
-func randomSuffix() string {
-	const alphabet = "0123456789abcdef"
-	buf := make([]byte, 6)
-	for index := range buf {
-		buf[index] = alphabet[rand.Intn(len(alphabet))]
-	}
-	return string(buf)
 }
