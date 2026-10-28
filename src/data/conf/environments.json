@@ -1,0 +1,9 @@
+{
+    "meta": {
+        "namespace": "conf/environments"
+    },
+    "dir": "environments",
+    "template": "data/default/env.tpl.json",
+    "maxEntries": 500,
+    "allowRecursiveDelete": true
+}

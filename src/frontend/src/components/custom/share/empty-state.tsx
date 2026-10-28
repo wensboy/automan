@@ -19,10 +19,13 @@ import { useStatic } from "@/components/custom/share/provider/static-provider"
 export default function EmptyState({
   title,
   description,
+  icon,
   children,
 }: {
   title: string
   description?: string
+  /** 替换默认图标(例如错误态用 CircleAlertIcon) */
+  icon?: ReactNode
   children?: ReactNode
 }) {
   const { Value } = useStatic()
@@ -31,7 +34,7 @@ export default function EmptyState({
       <Empty>
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            <InboxIcon />
+            {icon ?? <InboxIcon />}
           </EmptyMedia>
           <EmptyTitle>{title}</EmptyTitle>
           <EmptyDescription>{description ?? Value("contentArea.shared.notImplemented")}</EmptyDescription>

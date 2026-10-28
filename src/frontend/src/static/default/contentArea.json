@@ -238,6 +238,112 @@
                     "label": "Buy a coffee"
                 }
             ]
+        },
+        "environment": {
+            "title": "Environment",
+            "searchPlaceholder": "Search files",
+            "views": [
+                {
+                    "id": "list",
+                    "icon": "list",
+                    "label": "List view"
+                },
+                {
+                    "id": "file",
+                    "icon": "file",
+                    "label": "File view"
+                }
+            ],
+            "menus": {
+                "file": [
+                    {
+                        "id": "rename",
+                        "icon": "pencil",
+                        "label": "Rename"
+                    },
+                    {
+                        "id": "delete",
+                        "icon": "trash-2",
+                        "label": "Delete"
+                    },
+                    {
+                        "id": "refresh",
+                        "icon": "refresh-cw",
+                        "label": "Refresh"
+                    }
+                ],
+                "blank": [
+                    {
+                        "id": "newFile",
+                        "icon": "file-plus",
+                        "label": "New file"
+                    },
+                    {
+                        "id": "newFolder",
+                        "icon": "folder-plus",
+                        "label": "New folder"
+                    },
+                    {
+                        "id": "refresh",
+                        "icon": "refresh-cw",
+                        "label": "Refresh"
+                    }
+                ],
+                "dir": [
+                    {
+                        "id": "newFile",
+                        "icon": "file-plus",
+                        "label": "New file"
+                    },
+                    {
+                        "id": "newFolder",
+                        "icon": "folder-plus",
+                        "label": "New folder"
+                    },
+                    {
+                        "id": "refresh",
+                        "icon": "refresh-cw",
+                        "label": "Refresh"
+                    },
+                    {
+                        "id": "rename",
+                        "icon": "pencil",
+                        "label": "Rename"
+                    },
+                    {
+                        "id": "delete",
+                        "icon": "trash-2",
+                        "label": "Delete"
+                    }
+                ]
+            },
+            "empty": {
+                "title": "Environment",
+                "description": "This feature is not implemented yet."
+            },
+            "itemPlaceholder": "No item selected",
+            "list": {
+                "columns": {
+                    "type": "Type",
+                    "key": "Env key",
+                    "value": "Env value"
+                },
+                "typePlaceholder": "Select",
+                "errorTitle": "Invalid env file"
+            },
+            "dialog": {
+                "newFile": "New file",
+                "newFolder": "New folder",
+                "rename": "Rename",
+                "namePlaceholder": "Name",
+                "cancel": "Cancel",
+                "create": "Create",
+                "save": "Rename",
+                "deleteTitle": "Delete",
+                "deleteMessage": "Delete \"{name}\"? This cannot be undone.",
+                "deleteConfirm": "Delete"
+            },
+            "saveAria": "Save changes"
         }
     },
     "proxy": {

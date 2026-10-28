@@ -19,6 +19,7 @@ import (
 	serviceabout "github.com/wensboy/automan/backend/service/about"
 	serviceanalysis "github.com/wensboy/automan/backend/service/analysis"
 	servicecommand "github.com/wensboy/automan/backend/service/command"
+	serviceenvironments "github.com/wensboy/automan/backend/service/environments"
 	servicehelp "github.com/wensboy/automan/backend/service/help"
 	servicenotice "github.com/wensboy/automan/backend/service/notice"
 	serviceproxy "github.com/wensboy/automan/backend/service/proxy"
@@ -150,6 +151,20 @@ func registerServices(deps serviceDeps) (func(), error) {
 	// About: application.json(非空优先) + 构建注入(兜底)
 	aboutSvc := serviceabout.New().WithConfig(deps.provider)
 	if err := srvkit.Register(deps.runtime, serviceabout.Key, aboutSvc); err != nil {
+		return nil, err
+	}
+
+	// 环境变量: 统一读取口 + 挂载点管理(文件存储, 服务级实现)
+	envSvc := serviceenvironments.New().
+		WithStore(engines.files).
+		WithConfig(deps.provider).
+		WithData(deps.data).
+		WithLogger(engines.logger).
+		WithNotice(noticeSvc)
+	if envErr := envSvc.Init(); envErr != nil {
+		engines.logger.Deliver(logkit.New(domainlog.LevelWarn, "environments: init failed", logkit.F("err", envErr)))
+	}
+	if err := srvkit.Register(deps.runtime, serviceenvironments.Key, envSvc); err != nil {
 		return nil, err
 	}
 
