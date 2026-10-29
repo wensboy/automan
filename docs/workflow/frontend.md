@@ -26,3 +26,6 @@ description: "frontend 必要的规范"
 8. 编辑保存交互: 脏值时在文件名右侧显示保存按钮, 保存成功后消失; 展示用 pretty JSON, 存储可压缩.
 9. 服务端错误通过 dialog 内错误文本或 `notify` 呈现, 文案必须来自静态层.
 10. 需求/决策历史留在 vxx.md; 前端通用规范写入本文件 `## 细节`.
+11. 工具链约束: `node >= 24`, `pnpm >= 11`; 由 `frontend/package.json` 的 `engines` + `.npmrc` 的 `engine-strict=true` 强制, 不满足直接安装失败.
+12. 滚动条统一策略: 所有位置始终隐藏滚动条(零宽不占位), 只用滚轮/触控板滚动; 实现只在 `src/index.css` 的 `@layer base`, 组件不要各自覆写. 第三方自绘滚动条(xterm、Radix `ScrollArea`)同样收起.
+13. 关闭动画必须保持末帧: `animate-out` 元素在 `data-[state=closed]` 上加 `[--tw-animation-fill-mode:forwards]`(必要时加 `pointer-events-none`). tw-animate-css 的 `exit` 只有 `to` 帧, fill 为 `none` 时动画结束会闪回不透明, 重子树(设置/帮助弹窗)卸载晚一帧就是"关闭闪动".
