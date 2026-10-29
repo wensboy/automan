@@ -16,3 +16,4 @@ description: "backend 必要的规范"
 
 1. 在能够用原生库和engine的情况下, 优先engine, 例如: 文件系统操作应该统一走 store engine, 除非 engine 做不到. 
 2. internal 下的 package name 不允许以common, util, kit 等命名, 需要实际语义化, 不允许模糊语义.
+3. 对于同类型包下的不同领域模块, 在 import 导入时总是以: `<module><domain>` 命名导入, 不依赖默认导入. 例如: service/ 下的所有服务导入时都别名为 `sercicexxx`, 比如: `serviceproxy, servicesettings, servicehelp` 等, engine, domain 同理.
