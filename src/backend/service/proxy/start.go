@@ -433,7 +433,7 @@ func (s *Service) Stop(_ domaincontext.Context, ids []string) error {
 			}
 			continue
 		}
-		if err := s.starter.Stop(ctx, row.ID, s.baseDirOf(row.Name), s.stopTimeout); err != nil {
+		if err := s.starter.Stop(ctx, row.ID, s.storageDir(row), s.stopTimeout); err != nil {
 			s.fail("stop", row.Name, err)
 			if firstErr == nil {
 				firstErr = err
@@ -467,7 +467,7 @@ func (s *Service) prepareStartRequest(row Proxy) (StartRequest, error) {
 		UIPort:  toIntValue(parsed.UIPort, toIntValue(s.templateRules().UIPort, 8899)),
 		Timeout: toIntValue(parsed.Timeout, toIntValue(s.templateRules().Timeout, 30000)),
 		DNS:     parsed.DNSServer,
-		BaseDir: s.baseDirOf(row.Name),
+		BaseDir: s.storageDir(row),
 	}
 	if req.Host == "" {
 		req.Host = "127.0.0.1"
@@ -620,9 +620,9 @@ func (i *runtimeIndex) ownerOfPort(port int) string {
 // migrateBaseDir 在**改名**时把旧的 <proxies>/<old> 迁到 <proxies>/<new>。
 // 语义: DB 是唯一事实, 目录只是运行时数据 —— 迁移失败只告警, 不阻断更新。
 // 运行中的代理不迁移(whistle 正在用那个目录), 需先停止。
-func (s *Service) migrateBaseDir(oldName, newName string, running bool) {
-	oldDir := s.baseDirOf(oldName)
-	newDir := s.baseDirOf(newName)
+func (s *Service) migrateBaseDir(workspaceID, oldName, newName string, running bool) {
+	oldDir := s.baseDirOf(workspaceID, oldName)
+	newDir := s.baseDirOf(workspaceID, newName)
 	if oldDir == newDir {
 		return
 	}
@@ -651,14 +651,57 @@ func (s *Service) migrateBaseDir(oldName, newName string, running bool) {
 // whistle 会在其下再建 `.whistle/`(这一层去不掉, 见 v19 §23), 但已从
 // `.whistle/custom_dirs/<编码后的绝对路径>` 收敛为 `<name>/.whistle/...`。
 // name 在库内唯一, 因此无需再生成随机后缀。
-func (s *Service) baseDirOf(name string) string {
+// workspaceKey 返回 storage 目录的 workspace 前缀(空值回落当前/默认, 并做文件名安全化)。
+func (s *Service) workspaceKey(row Proxy) string {
+	key := strings.TrimSpace(row.WorkspaceID)
+	if key == "" {
+		key = s.workspaceID()
+	}
+	if key == "" {
+		key = "default"
+	}
+	replacer := strings.NewReplacer("/", "-", string(filepath.Separator), "-", ".", "_")
+	return replacer.Replace(key)
+}
+
+// storageDir 返回实例存储目录, 并把历史目录(<name>, 无 workspace 前缀)迁移到新格式。
+func (s *Service) storageDir(row Proxy) string {
+	dir := s.baseDirOf(s.workspaceKey(row), row.Name)
+	legacy := filepath.Join(s.proxyRoot, sanitizeName(row.Name))
+	if legacy == dir {
+		return dir
+	}
+	if _, err := os.Stat(dir); err == nil {
+		return dir
+	}
+	if _, err := os.Stat(legacy); err != nil {
+		return dir
+	}
+	if err := os.Rename(legacy, dir); err != nil {
+		s.deliver(domainlog.LevelWarn, "proxy: legacy basedir migration failed",
+			logkit.F("from", legacy), logkit.F("to", dir), logkit.F("err", err))
+	}
+	return dir
+}
+
+func sanitizeName(name string) string {
 	safe := strings.TrimSpace(name)
 	safe = strings.ReplaceAll(safe, "/", "-")
 	safe = strings.ReplaceAll(safe, string(filepath.Separator), "-")
 	if safe == "" {
-		safe = "proxy"
+		return "proxy"
 	}
-	return filepath.Join(s.proxyRoot, safe)
+	return safe
+}
+
+// baseDirOf 返回 <proxyRoot>/<workspace>.<name>(以 "." 分隔, 避免 workspace 中的 -/_ 歧义)。
+func (s *Service) baseDirOf(workspaceID, name string) string {
+	safe := sanitizeName(name)
+	workspace := strings.TrimSpace(workspaceID)
+	if workspace == "" {
+		workspace = "default"
+	}
+	return filepath.Join(s.proxyRoot, workspace+"."+safe)
 }
 
 // suggestStorage 生成基于代理名的 storage(尾部随机后缀, 避免目录冲突)。

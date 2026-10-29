@@ -165,7 +165,7 @@ func TestPrepareStartUsesPerProxyBaseDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("prepareStartRequest: %v", err)
 	}
-	if want := filepath.Join(svc.proxyRoot, "test_proxy_1"); req.BaseDir != want {
+	if want := filepath.Join(svc.proxyRoot, "w-test.test_proxy_1"); req.BaseDir != want {
 		t.Fatalf("basedir 应为 %q, got %q", want, req.BaseDir)
 	}
 	// 同一行多次准备结果稳定(没有随机后缀)
@@ -216,7 +216,7 @@ func TestPrepareStartUsesAbsolutePaths(t *testing.T) {
 	if err != nil {
 		t.Fatalf("prepareStartRequest: %v", err)
 	}
-	wantBase := filepath.Join(svc.root, "proxies", "demo")
+	wantBase := filepath.Join(svc.root, "proxies", "w-test.demo")
 	if req.BaseDir != wantBase || !filepath.IsAbs(req.BaseDir) {
 		t.Fatalf("basedir 应为绝对路径 %q, got %q", wantBase, req.BaseDir)
 	}
@@ -251,7 +251,7 @@ func TestMigrateBaseDirOnRename(t *testing.T) {
 	svc.root = t.TempDir()
 	svc.proxyRoot = svc.resolveBase("proxies")
 
-	oldDir := svc.baseDirOf("old-name")
+	oldDir := svc.baseDirOf("w-test", "old-name")
 	if err := os.MkdirAll(filepath.Join(oldDir, ".whistle", "rules"), 0o755); err != nil {
 		t.Fatalf("准备旧目录: %v", err)
 	}
@@ -260,15 +260,15 @@ func TestMigrateBaseDirOnRename(t *testing.T) {
 	}
 
 	// 运行中: 跳过, 旧目录仍在
-	svc.migrateBaseDir("old-name", "new-name", true)
+	svc.migrateBaseDir("w-test", "old-name", "new-name", true)
 	if _, err := os.Stat(filepath.Join(oldDir, ".whistle")); err != nil {
 		t.Fatalf("运行中不应迁移: %v", err)
 	}
 	logger.find(t, "proxy: basedir migration skipped (running)")
 
 	// 正常改名: 目录与会随之迁移
-	svc.migrateBaseDir("old-name", "new-name", false)
-	newDir := svc.baseDirOf("new-name")
+	svc.migrateBaseDir("w-test", "old-name", "new-name", false)
+	newDir := svc.baseDirOf("w-test", "new-name")
 	if _, err := os.Stat(filepath.Join(newDir, ".whistle", "rules", "default.rules")); err != nil {
 		t.Fatalf("应迁移到新目录: %v", err)
 	}
@@ -281,7 +281,7 @@ func TestMigrateBaseDirOnRename(t *testing.T) {
 	if err := os.MkdirAll(oldDir, 0o755); err != nil {
 		t.Fatalf("重建旧目录: %v", err)
 	}
-	svc.migrateBaseDir("old-name", "new-name", false)
+	svc.migrateBaseDir("w-test", "old-name", "new-name", false)
 	logger.find(t, "proxy: basedir migration skipped (target exists)")
 }
 
@@ -454,4 +454,27 @@ func (f *fakeRequester) Request(_ stdctx.Context, name string, _ any, _ time.Dur
 	}
 	raw, err := json.Marshal(reply)
 	return raw, err
+}
+
+// 历史目录(无 workspace 前缀)在首次使用时迁移到 <workspace>.<name>。
+func TestStorageDirMigratesLegacy(t *testing.T) {
+	svc, _, _ := startService(t, &fakeStarter{}, `{}`)
+	svc.root = t.TempDir()
+	svc.proxyRoot = svc.resolveBase("proxies")
+
+	legacy := filepath.Join(svc.proxyRoot, "demo")
+	if err := os.MkdirAll(filepath.Join(legacy, ".whistle"), 0o755); err != nil {
+		t.Fatalf("准备旧目录: %v", err)
+	}
+
+	dir := svc.storageDir(Proxy{Name: "demo", WorkspaceID: "w-test"})
+	if want := filepath.Join(svc.proxyRoot, "w-test.demo"); dir != want {
+		t.Fatalf("应返回新目录 %q, got %q", want, dir)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".whistle")); err != nil {
+		t.Fatalf("旧内容应迁移到新目录: %v", err)
+	}
+	if _, err := os.Stat(legacy); !os.IsNotExist(err) {
+		t.Fatalf("旧目录应已不存在: %v", err)
+	}
 }

@@ -105,6 +105,15 @@ func (s *ProxyService) Stop(ids []string) (err error) {
 	return svc.Stop(s.ctx, ids)
 }
 
+// DeleteMany 批量删除: 能删的删掉, 运行中/失败的跳过并返回原因.
+func (s *ProxyService) DeleteMany(ids []string) (serviceproxy.DeleteResult, error) {
+	svc, ok := srvkit.Of(s.ctx, serviceproxy.Key)
+	if !ok {
+		return serviceproxy.DeleteResult{}, apperr.New(apperr.CodeNotFound)
+	}
+	return svc.DeleteMany(s.ctx, ids)
+}
+
 // Delete 逻辑删除代理.
 func (s *ProxyService) Delete(id string) error {
 	svc, ok := srvkit.Of(s.ctx, serviceproxy.Key)

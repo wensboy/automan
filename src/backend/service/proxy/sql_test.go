@@ -158,6 +158,7 @@ func TestServiceAgainstRealSQLite(t *testing.T) {
 	}
 
 	// 逻辑删除: 列表里消失, 同名可以重建
+	svc.markStatus(second.ID, StatusStopped)
 	if err := svc.Delete(nil, second.ID); err != nil {
 		t.Fatalf("Delete: %v", err)
 	}

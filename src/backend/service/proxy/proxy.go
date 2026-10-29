@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io/fs"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -205,6 +206,12 @@ func (s *Service) Create(_ domaincontext.Context, input Input) (Proxy, error) {
 		return Proxy{}, err
 	}
 
+	// 同一 workspace 内名称唯一; 若目录仍存在, 说明此前删除未清理干净, 创建前清除
+	stale := s.baseDirOf(s.workspaceKey(Proxy{Name: normalized.Name, WorkspaceID: s.workspaceID()}), normalized.Name)
+	if removeErr := os.RemoveAll(stale); removeErr != nil {
+		s.deliver(domainlog.LevelWarn, "proxy: clear stale storage failed", logkit.F("dir", stale), logkit.F("err", removeErr))
+	}
+
 	now := s.now().UnixMilli()
 	id := s.newID()
 	columns := "id, name, target, status, rules, description, created_at, updated_at, deleted_at"
@@ -268,7 +275,7 @@ func (s *Service) Update(_ domaincontext.Context, id string, input Input) (Proxy
 
 	// 改名会换 basedir(<proxies>/<name>): 把旧目录迁过去, 避免历史数据留在旧名下
 	if normalized.Name != current.Name {
-		s.migrateBaseDir(current.Name, normalized.Name, current.Status == StatusRunning)
+		s.migrateBaseDir(s.workspaceKey(current), current.Name, normalized.Name, current.Status == StatusRunning)
 	}
 
 	s.info("proxy: updated", logkit.F("id", id), logkit.F("name", normalized.Name),
@@ -278,7 +285,7 @@ func (s *Service) Update(_ domaincontext.Context, id string, input Input) (Proxy
 	return s.mustGet(id)
 }
 
-// Delete 逻辑删除(置 deleted_at), 之后同名可重建.
+// Delete 逻辑删除(置 deleted_at), 之后同名可重建; 运行中的实例需先停止。
 func (s *Service) Delete(_ domaincontext.Context, id string) error {
 	if err := s.requireWorkspace(); err != nil {
 		return err
@@ -287,19 +294,86 @@ func (s *Service) Delete(_ domaincontext.Context, id string) error {
 	if err != nil {
 		return err
 	}
+	if current.Status == StatusRunning {
+		return invalid("proxy %q is running, stop it before deleting", current.Name)
+	}
+	return s.deleteOne(current, true)
+}
+
+// DeleteSkip 描述一条未能删除的记录(运行中/不存在/写库失败等)。
+type DeleteSkip struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Reason string `json:"reason"`
+}
+
+// DeleteResult 是批量删除结果: 已删除的 id + 被跳过的记录及原因。
+type DeleteResult struct {
+	Deleted []string     `json:"deleted"`
+	Skipped []DeleteSkip `json:"skipped"`
+}
+
+// DeleteMany 批量删除: 逐条校验, 能删的删掉, 运行中/失败的跳过并汇总 warn。
+func (s *Service) DeleteMany(_ domaincontext.Context, ids []string) (DeleteResult, error) {
+	if err := s.requireWorkspace(); err != nil {
+		return DeleteResult{}, err
+	}
+	result := DeleteResult{Deleted: []string{}, Skipped: []DeleteSkip{}}
+	for _, id := range ids {
+		current, err := s.mustGet(id)
+		if err != nil {
+			result.Skipped = append(result.Skipped, DeleteSkip{ID: id, Reason: err.Error()})
+			continue
+		}
+		if current.Status == StatusRunning {
+			result.Skipped = append(result.Skipped, DeleteSkip{ID: id, Name: current.Name, Reason: "running"})
+			continue
+		}
+		if err := s.deleteOne(current, false); err != nil {
+			result.Skipped = append(result.Skipped, DeleteSkip{ID: id, Name: current.Name, Reason: err.Error()})
+			continue
+		}
+		result.Deleted = append(result.Deleted, id)
+	}
+	if len(result.Deleted) > 0 {
+		s.notify(domainnotice.LevelSuccess, "proxy", "Proxies deleted", fmt.Sprintf("%d proxies deleted", len(result.Deleted)))
+	}
+	if len(result.Skipped) > 0 {
+		names := make([]string, 0, len(result.Skipped))
+		for _, item := range result.Skipped {
+			names = append(names, item.Name+"("+item.Reason+")")
+		}
+		s.deliver(domainlog.LevelWarn, "proxy: bulk delete skipped", logkit.F("items", strings.Join(names, ", ")))
+		// 只发一条 warn, 跳过明细全部放入 content
+		s.notify(domainnotice.LevelWarn, "proxy", "Some proxies were not deleted", strings.Join(names, ", "))
+	}
+	return result, nil
+}
+
+func (s *Service) deleteOne(current Proxy, announce bool) error {
 	now := s.now().UnixMilli()
 	where, whereArgs := s.userScope("id = ? AND deleted_at = 0")
-	deleteArgs := append([]any{now, now, id}, whereArgs...)
+	deleteArgs := append([]any{now, now, current.ID}, whereArgs...)
 	result, err := s.exec(`UPDATE proxies SET deleted_at = ?, updated_at = ? WHERE `+where, deleteArgs...)
 	if err != nil {
-		s.fail("delete", id, err)
+		s.fail("delete", current.ID, err)
 		return err
 	}
 	if result.RowsAffected == 0 {
-		return s.notFound(id)
+		return s.notFound(current.ID)
 	}
-	s.info("proxy: deleted", logkit.F("id", id), logkit.F("name", current.Name))
-	s.notify(domainnotice.LevelSuccess, "proxy", "Proxy deleted", current.Name)
+	// 一并清理实例运行目录(<proxyRoot>/<workspace>.<name>)
+	if dir := s.baseDirOf(s.workspaceKey(current), current.Name); dir != "" {
+		if removeErr := os.RemoveAll(dir); removeErr != nil {
+			s.deliver(domainlog.LevelWarn, "proxy: remove storage failed", logkit.F("dir", dir), logkit.F("err", removeErr))
+		}
+	}
+	s.index.release(current.ID)
+
+	s.info("proxy: deleted", logkit.F("id", current.ID), logkit.F("name", current.Name))
+	if announce {
+		s.notify(domainnotice.LevelSuccess, "proxy", "Proxy deleted", current.Name)
+	}
 	s.recordProxy(domainanalysis.ProxyEvent{ProxyID: current.ID, Name: current.Name, Listen: current.Target, Action: domainanalysis.ActionDelete, WorkspaceID: s.workspaceID()})
 	return nil
 }

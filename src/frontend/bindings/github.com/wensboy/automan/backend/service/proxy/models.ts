@@ -13,6 +13,23 @@ export interface CaptureTarget {
 }
 
 /**
+ * DeleteResult 是批量删除结果: 已删除的 id + 被跳过的记录及原因。
+ */
+export interface DeleteResult {
+    "deleted": string[] | null;
+    "skipped": DeleteSkip[] | null;
+}
+
+/**
+ * DeleteSkip 描述一条未能删除的记录(运行中/不存在/写库失败等)。
+ */
+export interface DeleteSkip {
+    "id": string;
+    "name": string;
+    "reason": string;
+}
+
+/**
  * Input 是写入入参(创建/更新共用).
  * Input 是创建/更新入参。**不含 status**: 状态由执行链路(Start/Stop)维护,
  * 允许入参写状态会让"状态与事实不符"(见 docs/design/v23.md §22/§23)。

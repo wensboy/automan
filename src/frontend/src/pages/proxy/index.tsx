@@ -7,6 +7,7 @@ import ProxyToolbar from "@/components/custom/proxy/toolbar"
 import {
   Create,
   Delete,
+  DeleteMany,
   List,
   Start,
   Stop,
@@ -155,6 +156,27 @@ export default function Proxy() {
     setSheetOpen(true)
   }
 
+  const deleteSelected = async () => {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) {
+      notify("error", "proxy", staticValue("contentArea.proxy.noSelection") ?? "")
+      return
+    }
+    try {
+      const result = await DeleteMany(ids)
+      const removed = new Set(result?.deleted ?? [])
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        for (const id of removed) next.delete(id)
+        return next
+      })
+      // 跳过的明细由后端汇总为一条 warn notice, 前端不再重复提示
+      await reload()
+    } catch (error) {
+      notify("error", "proxy", messageOf(error))
+    }
+  }
+
   const removeRow = async (row: Proxy) => {
     try {
       await Delete(row.id)
@@ -253,11 +275,8 @@ export default function Proxy() {
           })()
         }}
         onRefresh={() => void refresh()}
-        onClear={() => {
-          setQuery("")
-          setStatus("all")
-          setPage(1)
-        }}
+        onDelete={() => void deleteSelected()}
+        deleteDisabled={selectedIds.size === 0}
         // 启动: 选中里状态非 running 的全部置为 running; 停止: 非 stopped 的全部置为 stopped
         onStart={() => void startIds(Array.from(selectedIds))}
         onStop={() => void stopIds(Array.from(selectedIds))}

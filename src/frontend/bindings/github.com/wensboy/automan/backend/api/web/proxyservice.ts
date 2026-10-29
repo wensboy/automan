@@ -29,6 +29,13 @@ export function Delete(id: string): $CancellablePromise<void> {
 }
 
 /**
+ * DeleteMany 批量删除: 能删的删掉, 运行中/失败的跳过并返回原因.
+ */
+export function DeleteMany(ids: string[] | null): $CancellablePromise<proxy$0.DeleteResult> {
+    return $Call.ByID(3862434595, ids);
+}
+
+/**
  * Get 读取单条代理.
  */
 export function Get(id: string): $CancellablePromise<proxy$0.Proxy> {

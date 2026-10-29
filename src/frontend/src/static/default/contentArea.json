@@ -366,7 +366,6 @@
         "searchAria": "Search proxies",
         "add": "Add proxy",
         "refresh": "Refresh",
-        "clear": "Clear search",
         "start": "Start",
         "stop": "Stop",
         "rowSelect": "Select ",
@@ -415,7 +414,8 @@
         },
         "statusAria": "Filter by status",
         "allStatuses": "All statuses",
-        "noSelection": "Select at least one proxy"
+        "noSelection": "Select at least one proxy",
+        "deleteSelected": "Delete selected"
     },
     "records": {
         "title": "Records",

@@ -3,6 +3,8 @@
 
 export type {
     CaptureTarget,
+    DeleteResult,
+    DeleteSkip,
     Input,
     Page,
     Proxy,

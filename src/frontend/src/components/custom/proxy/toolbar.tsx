@@ -30,7 +30,8 @@ export default function ProxyToolbar({
   onStatusChange,
   onAdd,
   onRefresh,
-  onClear,
+  onDelete,
+  deleteDisabled,
   onStart,
   onStop,
 }: {
@@ -40,7 +41,8 @@ export default function ProxyToolbar({
   onStatusChange: (value: ProxyStatusFilter) => void
   onAdd: () => void
   onRefresh: () => void
-  onClear: () => void
+  onDelete: () => void
+  deleteDisabled: boolean
   onStart: () => void
   onStop: () => void
 }) {
@@ -79,8 +81,9 @@ export default function ProxyToolbar({
         type="button"
         variant="outline"
         size="icon"
-        aria-label={staticValue("contentArea.proxy.clear")}
-        onClick={onClear}
+        aria-label={staticValue("contentArea.proxy.deleteSelected")}
+        disabled={deleteDisabled}
+        onClick={onDelete}
       >
         <Trash2Icon />
       </Button>

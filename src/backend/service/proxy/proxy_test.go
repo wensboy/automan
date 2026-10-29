@@ -2,7 +2,10 @@ package proxy
 
 import (
 	stdctx "context"
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -25,6 +28,7 @@ type fakeStore struct {
 	total    int
 	row      *Proxy
 	rows     []Proxy
+	byID     map[string]Proxy
 	affected int64
 
 	execs   []call
@@ -94,9 +98,18 @@ func (f *fakeStore) Do(_ stdctx.Context, task domainstore.Task) (any, error) {
 
 		default: // 按 id 取单行(引擎的 Into 只支持切片, 所以这里也返回切片)
 			if into, ok := args.Into.(*[]Proxy); ok {
-				if f.row == nil {
+				switch {
+				case f.byID != nil && len(args.Args) > 0:
+					if id, ok := args.Args[len(args.Args)-1].(string); ok {
+						if row, exists := f.byID[id]; exists {
+							*into = []Proxy{row}
+							return domainstore.QueryResult{Count: 1}, nil
+						}
+					}
 					*into = []Proxy{}
-				} else {
+				case f.row == nil:
+					*into = []Proxy{}
+				default:
 					*into = []Proxy{*f.row}
 				}
 			}
@@ -408,4 +421,75 @@ func TestCreateRejectsInvalidRules(t *testing.T) {
 	if _, err := svc.Create(nil, Input{Name: "ok", Rules: `{"host":"127.0.0.1","port":8899,"uiport":8899,"timeout":30000,"dnsServer":"1.1.1.1"}`}); err != nil {
 		t.Fatalf("合法 rules 应通过: %v", err)
 	}
+}
+
+// 删除代理时应一并清理实例运行目录(<proxyRoot>/<workspace>.<name>)。
+func TestDeleteRemovesStorageDir(t *testing.T) {
+	svc, store, _ := newService()
+	svc.root = t.TempDir()
+	svc.proxyRoot = svc.resolveBase("proxies")
+	store.row = &Proxy{ID: "p1", Name: "local-dev", WorkspaceID: "w-test"}
+
+	dir := svc.baseDirOf(svc.workspaceKey(*store.row), store.row.Name)
+	if err := os.MkdirAll(filepath.Join(dir, "rule"), 0o755); err != nil {
+		t.Fatalf("准备目录: %v", err)
+	}
+
+	if err := svc.Delete(nil, "p1"); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
+	if _, err := os.Stat(dir); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("storage 目录应被删除: %v", err)
+	}
+}
+
+// 运行中的代理不允许删除。
+func TestDeleteRejectsRunning(t *testing.T) {
+	svc, store, _ := newService()
+	store.row = &Proxy{ID: "p1", Name: "api", Status: StatusRunning}
+
+	if err := svc.Delete(nil, "p1"); err == nil || !strings.Contains(err.Error(), "running") {
+		t.Fatalf("运行中删除应被拒绝, got %v", err)
+	}
+}
+
+// 创建同 workspace+name 时清除历史残留目录(此前删除未清理干净)。
+func TestCreateClearsStaleStorage(t *testing.T) {
+	svc, _, _ := newService()
+	svc.root = t.TempDir()
+	svc.proxyRoot = svc.resolveBase("proxies")
+
+	stale := svc.baseDirOf("w-test", "api")
+	if err := os.MkdirAll(filepath.Join(stale, ".whistle"), 0o755); err != nil {
+		t.Fatalf("准备残留目录: %v", err)
+	}
+
+	if _, err := svc.Create(nil, Input{Name: "api", Rules: `{"host":"127.0.0.1","port":8899}`}); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if _, err := os.Stat(stale); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("残留目录应被清除: %v", err)
+	}
+}
+
+// 批量删除: 能删的删掉, 运行中的跳过并汇总 warn(不中断其余删除)。
+func TestDeleteManySkipsRunning(t *testing.T) {
+	svc, store, logger := newService()
+	stopped := &Proxy{ID: "p1", Name: "a", Status: StatusStopped}
+	running := &Proxy{ID: "p2", Name: "b", Status: StatusRunning}
+
+	// mustGet 依据 id 返回不同行
+	store.byID = map[string]Proxy{"p1": *stopped, "p2": *running}
+
+	result, err := svc.DeleteMany(nil, []string{"p1", "p2"})
+	if err != nil {
+		t.Fatalf("DeleteMany: %v", err)
+	}
+	if len(result.Deleted) != 1 || result.Deleted[0] != "p1" {
+		t.Fatalf("应只删除 p1: %+v", result.Deleted)
+	}
+	if len(result.Skipped) != 1 || result.Skipped[0].ID != "p2" || result.Skipped[0].Reason != "running" {
+		t.Fatalf("p2 应因 running 跳过: %+v", result.Skipped)
+	}
+	logger.find(t, "proxy: bulk delete skipped")
 }
