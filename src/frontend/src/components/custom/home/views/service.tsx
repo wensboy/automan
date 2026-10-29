@@ -1,5 +1,4 @@
 import * as React from "react"
-import { cn } from "cn"
 import { ActivityIcon } from "lucide-react"
 import {
   Area,
@@ -45,13 +44,6 @@ import {
  */
 
 const seriesColors = ["var(--primary)", "var(--status-running)", "var(--status-stopped)", "var(--status-error)"]
-
-const scrollbarClass = cn(
-  "min-h-0 overflow-auto",
-  "[&::-webkit-scrollbar]:h-0 [&::-webkit-scrollbar]:w-0",
-  "[&::-webkit-scrollbar-thumb]:bg-transparent",
-  "[&::-webkit-scrollbar-track]:bg-transparent",
-)
 
 const yDomain: [((min: number) => number), ((max: number) => number)] = [
   (min) => Math.max(0, Math.floor(min - Math.max(Math.abs(min) * 0.1, 1))),
@@ -264,7 +256,7 @@ export default function ServiceAnalysisView() {
           ) : (
             <>
               <div className="min-h-0 flex-[2]">{chart}</div>
-              <div className={cn(scrollbarClass, "min-h-0 flex-[1] rounded-md border")}>
+              <div className="min-h-0 flex-[1] overflow-auto rounded-md border">
                 <table className="w-full min-w-full caption-bottom text-xs">
                   <thead className="sticky top-0 z-10 bg-background">
                     <tr className="border-b text-left text-muted-foreground">

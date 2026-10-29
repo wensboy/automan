@@ -18,6 +18,9 @@ export default function CaptureFrame({ url }: { url?: string }) {
     )
   }
 
+  // 宽度跟随容器: 滚动条全仓隐藏后, 若给 iframe 垫最小宽度, 外层横向滚动只能靠滚轮,
+  // 而指针落在 iframe 上时滚轮事件被其文档吃掉, 溢出的部分将无法触达 —— 故不再做宽度底座。
+  // 内嵌页自身的横向溢出(跨域文档)由它自己的文档滚动承担, 这里只保证盒子有界不撑开外壳。
   return (
     <iframe
       // key 让切换目标时重建 iframe(否则部分 webview 会沿用上一个页面)

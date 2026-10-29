@@ -1,5 +1,4 @@
 import * as React from "react"
-import { cn } from "cn"
 
 import { useStatic } from "@/components/custom/share/provider/static-provider"
 import { loadSystemInfo, type SystemRow } from "@/lib/analysis"
@@ -42,15 +41,7 @@ export default function SystemAnalysisView() {
             {text("contentArea.home.analysis.system.title", "System information")}
           </CardTitle>
         </CardHeader>
-        <CardContent
-          className={cn(
-            "min-h-0 flex-1 overflow-auto px-0 pb-0",
-            // 滚动条一律隐藏(不占布局)
-            "[&::-webkit-scrollbar]:h-0 [&::-webkit-scrollbar]:w-0",
-            "[&::-webkit-scrollbar-thumb]:bg-transparent",
-            "[&::-webkit-scrollbar-track]:bg-transparent",
-          )}
-        >
+        <CardContent className="min-h-0 flex-1 overflow-auto px-0 pb-0">
           <table className="w-full min-w-full caption-bottom text-xs">
             <thead className="sticky top-0 z-10 bg-background">
               <tr className="border-b text-left text-muted-foreground">

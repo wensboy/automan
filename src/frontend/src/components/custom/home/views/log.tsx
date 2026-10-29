@@ -44,15 +44,6 @@ type LogLevelCode = "debug" | "info" | "warn" | "error"
  *   右下: 警告/错误日志表(时间范围切换 + 列隐藏, 菜单在时间选择右侧)
  */
 
-// 与 proxy 一致的滚动条策略: 平时零宽不占位, 悬停才出现
-const scrollbarClass = cn(
-  "min-h-0 flex-1 overflow-auto",
-  // 滚动条一律零宽: 不占布局, 不出现右侧割裂(滚轮/触控板仍可滚)
-  "[&::-webkit-scrollbar]:h-0 [&::-webkit-scrollbar]:w-0",
-  "[&::-webkit-scrollbar-thumb]:bg-transparent",
-  "[&::-webkit-scrollbar-track]:bg-transparent",
-)
-
 type IssueColumn = "id" | "level" | "message" | "extra"
 
 const issueColumnKeys: IssueColumn[] = ["id", "level", "message", "extra"]
@@ -192,7 +183,7 @@ export default function LogAnalysisView() {
           <CardHeader className="px-3 py-2">
             <CardTitle className="text-sm font-medium">{text("domainTitle", "Domain statistics")}</CardTitle>
           </CardHeader>
-          <CardContent className={cn(scrollbarClass, "px-0 pb-0")}>
+          <CardContent className="min-h-0 flex-1 overflow-auto px-0 pb-0">
             <table className="w-full min-w-full caption-bottom text-xs">
               <thead className="sticky top-0 z-10 bg-background">
                 <tr className="border-b text-left text-muted-foreground">
@@ -271,7 +262,7 @@ export default function LogAnalysisView() {
               </DropdownMenu>
             </div>
           </CardHeader>
-          <CardContent className={cn(scrollbarClass, "px-0 pb-0")}>
+          <CardContent className="min-h-0 flex-1 overflow-auto px-0 pb-0">
             <table className="w-full min-w-full caption-bottom text-xs">
               <thead className="sticky top-0 z-10 bg-background">
                 <tr className="border-b text-left text-muted-foreground">

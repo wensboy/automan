@@ -40,9 +40,8 @@ export default function TabBar({
       onWheel={handleWheel}
       role="tablist"
       className={cn(
-        // 隐藏滚动条: 只用 ::-webkit-scrollbar (不要写 scrollbar-width/-color, WebKit 下会让伪元素失效);
-        // 溢出仍可用鼠标滚轮横向滚动 (见 handleWheel)
-        "flex min-w-0 items-stretch gap-1 overflow-x-auto [&::-webkit-scrollbar]:hidden",
+        // 滚动条已由 index.css 全局隐藏(零宽不占位); 溢出靠鼠标滚轮横向滚动 (见 handleWheel)
+        "flex min-w-0 items-stretch gap-1 overflow-x-auto",
         className,
       )}
     >
@@ -52,8 +51,8 @@ export default function TabBar({
           <div
             key={item.value}
             className={cn(
-              // 标签之间不用分隔线, 靠父层 gap 区分
-              "group flex h-full shrink-0 items-center gap-1 pr-1 pl-2 text-sm",
+              // 标签之间不用分隔线, 靠父层 gap 区分; 圆角与 ui/tabs 的 trigger 保持一致(rounded-md)
+              "group flex h-full shrink-0 items-center gap-1 rounded-md pr-1 pl-2 text-sm",
               // 同色调凸显: 选中项只比背景深/浅一档 (浅色更灰、深色更亮), 不做反色;
               // 未选中与所在背景一致, 仅在悬停时给一点反馈
               active

@@ -37,7 +37,10 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/50 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0",
+        "fixed inset-0 z-50 bg-black/50 duration-200 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0",
+        // 关闭动画结束后保持末帧(fill-mode: forwards): tw-animate-css 的 exit 只有 to 帧,
+        // fill 为 none 时动画结束会瞬间回到 opacity 1, 重子树(设置/帮助)卸载延迟一帧就会闪一下。
+        "data-[state=closed]:[--tw-animation-fill-mode:forwards] data-[state=closed]:pointer-events-none",
         className
       )}
       {...props}
@@ -57,6 +60,8 @@ const DialogContent = React.forwardRef<
         data-slot="dialog-content"
         className={cn(
           "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border bg-background p-6 shadow-lg duration-200 outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-lg",
+          // 同 overlay: 保持关闭末帧, 避免卸载前闪回不透明
+          "data-[state=closed]:[--tw-animation-fill-mode:forwards] data-[state=closed]:pointer-events-none",
           className
         )}
         {...props}

@@ -170,4 +170,17 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* 滚动条统一策略: 所有位置一律零宽隐藏(不占位、不可见), 滚轮/触控板仍可滚动。
+     只用 ::-webkit-scrollbar —— 一旦写 scrollbar-width/scrollbar-color, WebKit 会改用标准滚动条
+     并忽略伪元素样式, 隐藏规则随之失效 (见 docs/design/v14.md)。 */
+  *::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+  *::-webkit-scrollbar-thumb,
+  *::-webkit-scrollbar-track,
+  *::-webkit-scrollbar-corner {
+    background-color: transparent;
+  }
 }

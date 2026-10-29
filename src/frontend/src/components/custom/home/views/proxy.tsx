@@ -1,5 +1,4 @@
 import * as React from "react"
-import { cn } from "cn"
 import { Columns3Icon, NetworkIcon } from "lucide-react"
 import PieBlock from "@/components/custom/share/pie-block"
 import EmptyState from "@/components/custom/share/empty-state"
@@ -220,15 +219,7 @@ export default function ProxyAnalysisView() {
               </DropdownMenuContent>
             </DropdownMenu>
           </CardHeader>
-          <CardContent
-            className={cn(
-              "min-h-0 flex-1 overflow-auto px-0 pb-0",
-              // 滚动条一律零宽(不占布局): 避免悬停时出现导致右侧 gap/割裂
-              "[&::-webkit-scrollbar]:h-0 [&::-webkit-scrollbar]:w-0",
-              "[&::-webkit-scrollbar-thumb]:bg-transparent",
-              "[&::-webkit-scrollbar-track]:bg-transparent",
-            )}
-          >
+          <CardContent className="min-h-0 flex-1 overflow-auto px-0 pb-0">
             <table className="w-full min-w-full caption-bottom text-xs">
               <thead className="sticky top-0 z-10 bg-background">
                 <tr className="border-b text-left text-muted-foreground">

@@ -243,22 +243,6 @@ export default function SettingsDialog({
 }) {
   const { Value, icon } = useStatic()
 
-  // 滚动条: 默认隐藏, 滚动时显示, 停止 700ms 后再次隐藏。
-  // 用 scrollbar-gutter:stable 预留槽位, 避免显示/隐藏时内容横向跳动。
-  const [scrolling, setScrolling] = React.useState(false)
-  const scrollTimer = React.useRef<number | null>(null)
-  const handleScroll = React.useCallback(() => {
-    setScrolling(true)
-    if (scrollTimer.current !== null) window.clearTimeout(scrollTimer.current)
-    scrollTimer.current = window.setTimeout(() => setScrolling(false), 700)
-  }, [])
-  React.useEffect(
-    () => () => {
-      if (scrollTimer.current !== null) window.clearTimeout(scrollTimer.current)
-    },
-    [],
-  )
-
   const groups = React.useMemo(
     () =>
       settingsGroups().map((group) => ({
@@ -428,17 +412,7 @@ export default function SettingsDialog({
                 </Button>
               </div>
             </header>
-            <div
-              onScroll={handleScroll}
-              className={cn(
-                "flex-1 overflow-y-auto px-4 py-2",
-                // 细滚动条 + 保留轨道宽度(空闲只把 thumb 设透明), 显示/隐藏时不引起布局跳动
-                "[scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent",
-                scrolling
-                  ? "[scrollbar-color:var(--border)_transparent] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border"
-                  : "[scrollbar-color:transparent_transparent] [&::-webkit-scrollbar-thumb]:bg-transparent",
-              )}
-            >
+            <div className="flex-1 overflow-y-auto px-4 py-2">
               {groupFields.map((field, index) => (
                 <SettingsRow
                   key={field.key}
