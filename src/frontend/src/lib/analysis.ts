@@ -101,3 +101,33 @@ export async function loadServiceSnapshot(bridgeService: string) {
   return ServiceSnapshot(bridgeService)
 }
 
+
+/** Service 视图的展示类型(与后端 SeriesDef/Sample 对齐)。 */
+export type ServiceResource = "cpu" | "ram" | "io" | "gc" | "heap" | "goroutine" | "bridge"
+
+export type SeriesDef = {
+  key: string
+  label: string
+  unit: "%" | "MB" | "count" | "ms" | "MB/s" | "ops/s"
+  digits?: number
+}
+
+export type Sample = {
+  ts: number
+  values: Record<string, number>
+}
+
+/** 采样间隔(与后端 conf/analysis.sampleIntervalMs 对齐)。 */
+export const serviceIntervalMs = 10_000
+
+/** 进程号缺省值: 真实 PID 由后端快照提供。 */
+export const servicePid = 0
+
+/** 格式化一个指标值(带单位)。 */
+export function formatMetric(value: number, series: SeriesDef): string {
+  const digits = series.digits ?? 0
+  const number = value.toFixed(digits)
+  if (series.unit === "%") return `${number}%`
+  if (series.unit === "count") return number
+  return `${number} ${series.unit}`
+}

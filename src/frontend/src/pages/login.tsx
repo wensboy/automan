@@ -145,7 +145,8 @@ function LoginForm({ className, ...props }: React.ComponentProps<"div">) {
       </Card>
       <FieldDescription className="px-6 text-center">
         {staticValue("auth.shared.termsPrefix")} <a href="#">{staticValue("auth.shared.termsOfService")}</a>{" "}
-        and <a href="#">{staticValue("auth.shared.privacyPolicy")}</a>.
+        {staticValue("auth.shared.termsAnd")} <a href="#">{staticValue("auth.shared.privacyPolicy")}</a>
+        {staticValue("auth.shared.termsSuffix")}
       </FieldDescription>
     </div>
   )

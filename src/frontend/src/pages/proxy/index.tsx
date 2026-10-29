@@ -305,7 +305,7 @@ export default function Proxy() {
       />
       {loading && (
         <span className="sr-only" role="status">
-          Loading
+          {staticValue("contentArea.shared.loading")}
         </span>
       )}
     </div>

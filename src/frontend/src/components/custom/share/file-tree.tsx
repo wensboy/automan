@@ -1,6 +1,5 @@
 import * as React from "react"
 
-import type { FileNode } from "@/mock/environment"
 import { cn } from "cn"
 import { ChevronRightIcon } from "lucide-react"
 
@@ -12,6 +11,14 @@ import { ChevronRightIcon } from "lucide-react"
  *   · 右键分为 dir / file / blank 三类, 由 onContextMenu 交给调用方决定菜单;
  *   · revealId 用于外部(搜索跳转)展开并定位到某个节点。
  */
+/** 树节点: 通用的文件/目录结构(调用方自行映射数据源)。 */
+export type FileNode = {
+  id: string
+  name: string
+  type: "dir" | "file"
+  children?: FileNode[]
+}
+
 export type FileTreeContextType = "dir" | "file" | "blank"
 
 export type FileTreeContext = {

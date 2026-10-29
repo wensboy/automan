@@ -27,15 +27,15 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { loadServiceSnapshot } from "@/lib/analysis"
 import {
   formatMetric,
+  loadServiceSnapshot,
   serviceIntervalMs,
   servicePid,
   type Sample,
   type SeriesDef,
   type ServiceResource,
-} from "@/mock/analysis-service"
+} from "@/lib/analysis"
 
 /**
  * Service 分析视图(见 docs/design/v25.md §7/§9)。

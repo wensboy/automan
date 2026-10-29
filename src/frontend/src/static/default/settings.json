@@ -110,5 +110,12 @@
             }
         }
     },
-    "advanced": {}
+    "advanced": {},
+    "dialog": {
+        "listPlaceholder": "Type and press Enter"
+    },
+    "actions": {
+        "revert": "Revert",
+        "save": "Save"
+    }
 }

@@ -9,7 +9,7 @@ import { toast } from "sonner"
 import { Options as LoadOptions } from "../../../../bindings/github.com/wensboy/automan/backend/api/web/settingsservice"
 
 import ListInput from "@/components/custom/share/list-input"
-import { useStatic } from "@/components/custom/share/provider/static-provider"
+import { staticValue, useStatic } from "@/components/custom/share/provider/static-provider"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -172,7 +172,7 @@ function SettingsRow({
             const parsed = items.map((item) => fromText(item, type.of)).filter((item) => item !== undefined)
             onChange(parsed as SettingsValue)
           }}
-          placeholder="Type and press Enter"
+          placeholder={staticValue("settings.dialog.listPlaceholder") ?? ""}
         />
       )}
 
@@ -416,7 +416,7 @@ export default function SettingsDialog({
                     setValues(loaded)
                   }}
                 >
-                  Revert
+                  {Value("settings.actions.revert")}
                 </Button>
                 <Button
                   type="button"
@@ -424,7 +424,7 @@ export default function SettingsDialog({
                   disabled={dirtyKeys.length === 0 || pending}
                   onClick={save}
                 >
-                  Save
+                  {Value("settings.actions.save")}
                 </Button>
               </div>
             </header>

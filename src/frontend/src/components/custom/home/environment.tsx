@@ -195,7 +195,7 @@ export default function EnvironmentView() {
       setEditor(prettyJSON(next.content))
       setDocError("")
     } catch (error) {
-      notify("error", "environments", "Save failed", messageOf(error))
+      notify("error", "environments", text("contentArea.home.environment.notify.saveFailed", "Save failed"), messageOf(error))
     } finally {
       setSaving(false)
     }
@@ -235,7 +235,7 @@ export default function EnvironmentView() {
     }
     const name = dialogName.trim()
     if (!name) {
-      setDialogError("Name is required")
+      setDialogError(text("contentArea.home.environment.dialog.nameRequired", "Name is required"))
       return
     }
     try {
@@ -295,7 +295,7 @@ export default function EnvironmentView() {
         }
       }
     } catch (error) {
-      notify("error", "environments", "Operation failed", messageOf(error))
+      notify("error", "environments", text("contentArea.home.environment.notify.operationFailed", "Operation failed"), messageOf(error))
     }
   }
 

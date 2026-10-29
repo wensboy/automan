@@ -1,3 +1,4 @@
+import { staticValue } from "@/components/custom/share/provider/static-provider"
 import type { ReactNode } from "react"
 import { PencilIcon, RefreshCwIcon, SaveIcon } from "lucide-react"
 import { cn } from "cn"
@@ -40,7 +41,7 @@ export default function LabelChunk({
           variant="ghost"
           size="icon"
           className="size-6"
-          aria-label="Refresh"
+          aria-label={staticValue("contentArea.shared.actions.refresh")}
           onClick={onRefresh}
         >
           <RefreshCwIcon className="size-3.5" />
@@ -52,7 +53,7 @@ export default function LabelChunk({
           variant="ghost"
           size="icon"
           className="size-6"
-          aria-label="Save"
+          aria-label={staticValue("contentArea.shared.actions.save")}
           onClick={onSave}
         >
           <SaveIcon className="size-3.5" />
@@ -63,7 +64,7 @@ export default function LabelChunk({
           active={editing}
           onToggle={onToggleEdit}
           className="size-6"
-          aria-label="Edit"
+          aria-label={staticValue("contentArea.shared.actions.edit")}
         >
           <PencilIcon className="size-3.5" />
         </SwitchButton>

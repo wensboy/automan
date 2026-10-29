@@ -1,6 +1,15 @@
 {
     "shared": {
-        "notImplemented": "This page is not implemented yet."
+        "notImplemented": "This page is not implemented yet.",
+        "loading": "Loading",
+        "actions": {
+            "clear": "Clear",
+            "increase": "Increase",
+            "decrease": "Decrease",
+            "refresh": "Refresh",
+            "save": "Save",
+            "edit": "Edit"
+        }
     },
     "notFound": {
         "title": "404",
@@ -341,9 +350,14 @@
                 "save": "Rename",
                 "deleteTitle": "Delete",
                 "deleteMessage": "Delete \"{name}\"? This cannot be undone.",
-                "deleteConfirm": "Delete"
+                "deleteConfirm": "Delete",
+                "nameRequired": "Name is required"
             },
-            "saveAria": "Save changes"
+            "saveAria": "Save changes",
+            "notify": {
+                "operationFailed": "Operation failed",
+                "saveFailed": "Save failed"
+            }
         }
     },
     "proxy": {
@@ -510,5 +524,8 @@
         "tabNew": "New",
         "tabWorkflow": "Workflow",
         "empty": "This tab is not implemented yet."
+    },
+    "help": {
+        "search": "Search"
     }
 }

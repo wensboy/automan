@@ -1,3 +1,4 @@
+import { staticValue } from "@/components/custom/share/provider/static-provider"
 import * as React from "react"
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 import { cn } from "cn"
@@ -102,7 +103,7 @@ export default function StepInput({
           className="h-1/2 w-6 rounded-none"
           disabled={!canIncrease}
           onClick={() => bump(step)}
-          aria-label="Increase"
+          aria-label={staticValue("contentArea.shared.actions.increase")}
         >
           <ChevronUpIcon className="size-3" />
         </Button>
@@ -113,7 +114,7 @@ export default function StepInput({
           className="h-1/2 w-6 rounded-none border-t"
           disabled={!canDecrease}
           onClick={() => bump(-step)}
-          aria-label="Decrease"
+          aria-label={staticValue("contentArea.shared.actions.decrease")}
         >
           <ChevronDownIcon className="size-3" />
         </Button>

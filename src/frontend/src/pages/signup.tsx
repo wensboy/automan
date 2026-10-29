@@ -68,7 +68,7 @@ function SignupForm({ className, ...props }: React.ComponentProps<"div">) {
               <div className="flex flex-col items-center gap-2 text-center">
                 <h1 className="text-2xl font-bold">{staticValue("auth.signup.title")}</h1>
                 <p className="text-sm text-balance text-muted-foreground">
-                  Enter your email below to create your account
+                  {staticValue("auth.signup.description")}
                 </p>
               </div>
               <Field>
@@ -98,7 +98,7 @@ function SignupForm({ className, ...props }: React.ComponentProps<"div">) {
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="confirm-password">
-                      Confirm Password
+                      {staticValue("auth.shared.confirmPassword")}
                     </FieldLabel>
                     <Input
                       id="confirm-password"
@@ -162,7 +162,8 @@ function SignupForm({ className, ...props }: React.ComponentProps<"div">) {
       </Card>
       <FieldDescription className="px-6 text-center">
         {staticValue("auth.shared.termsPrefix")} <a href="#">{staticValue("auth.shared.termsOfService")}</a>{" "}
-        and <a href="#">{staticValue("auth.shared.privacyPolicy")}</a>.
+        {staticValue("auth.shared.termsAnd")} <a href="#">{staticValue("auth.shared.privacyPolicy")}</a>
+        {staticValue("auth.shared.termsSuffix")}
       </FieldDescription>
     </div>
   )

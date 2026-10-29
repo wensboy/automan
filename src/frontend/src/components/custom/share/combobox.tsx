@@ -1,3 +1,4 @@
+import { staticValue } from "@/components/custom/share/provider/static-provider"
 import * as React from "react"
 import { CheckIcon, ChevronDownIcon, XIcon } from "lucide-react"
 
@@ -122,7 +123,7 @@ export default function Combobox({
           {selected || query ? (
             <button
               type="button"
-              aria-label="Clear"
+              aria-label={staticValue("contentArea.shared.actions.clear")}
               className="absolute top-1/2 right-1 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
               onMouseDown={(event) => event.preventDefault()}
               onClick={clear}
