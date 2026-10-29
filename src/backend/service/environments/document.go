@@ -7,14 +7,23 @@ import (
 	"fmt"
 	"io/fs"
 	"path"
-	"regexp"
 	"strconv"
 	"strings"
+	"text/template"
 
 	domainenvironments "github.com/wensboy/automan/backend/domain/environments"
 )
 
-var placeholderExpr = regexp.MustCompile(`\{\{\s*([A-Za-z0-9_]+)\s*\}\}`)
+// entryName 是模板注入的条目键, 与 data/default/env.tpl.json 的 meta.entry 一致。
+const entryName = "environments"
+
+// envTemplateData 是 env 模板的渲染上下文: 模板按 Go 标准库 text/template 语义写
+// {{.Dir}} / {{.Filename}} / {{.Entry}}。
+type envTemplateData struct {
+	Dir      string
+	Filename string
+	Entry    string
+}
 
 // compactJSON 去除空白(存储/缓存用), 失败时返回原始内容。
 func compactJSON(payload []byte) []byte {
@@ -38,26 +47,20 @@ func (s *Service) renderTemplate(rel string, entries []domainenvironments.Entry)
 	if directory == "." {
 		directory = ""
 	}
-	values := map[string]string{
-		"dir":      directory,
-		"filename": path.Base(rel),
-		"entry":    "environments",
-	}
-	entryName := values["entry"]
 
-	var unknown string
-	rendered := placeholderExpr.ReplaceAllStringFunc(string(payload), func(match string) string {
-		name := placeholderExpr.FindStringSubmatch(match)[1]
-		value, ok := values[name]
-		if !ok {
-			unknown = name
-			return match
-		}
-		return value
-	})
-	if unknown != "" {
-		return "", fmt.Errorf("%w: {{%s}}", domainenvironments.ErrUnknownPlace, unknown)
+	tpl, err := template.New(path.Base(s.template)).Parse(string(payload))
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", domainenvironments.ErrInvalidFile, err)
 	}
+	var buffer bytes.Buffer
+	if err := tpl.Execute(&buffer, envTemplateData{
+		Dir:      directory,
+		Filename: path.Base(rel),
+		Entry:    entryName,
+	}); err != nil {
+		return "", fmt.Errorf("%w: %v", domainenvironments.ErrUnknownPlace, err)
+	}
+	rendered := buffer.String()
 	if len(entries) == 0 {
 		return rendered, nil
 	}

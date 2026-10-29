@@ -14,8 +14,8 @@ import (
 	domainstore "github.com/wensboy/automan/backend/domain/store"
 )
 
-const template = `{
-  "meta": { "path": "{{dir}}/{{filename}}", "entry": "{{entry}}" },
+const testTemplate = `{
+  "meta": { "path": "{{.Dir}}/{{.Filename}}", "entry": "{{.Entry}}" },
   "environments": [
     { "type": "string", "key": "API_URL", "value": "http://127.0.0.1:8080" }
   ]
@@ -93,7 +93,7 @@ func newService(t *testing.T, tpl string) *Service {
 }
 
 func TestCreateFileFromTemplate(t *testing.T) {
-	svc := newService(t, template)
+	svc := newService(t, testTemplate)
 	if _, err := svc.CreateDir("default"); err != nil {
 		t.Fatalf("create dir: %v", err)
 	}
@@ -119,14 +119,14 @@ func TestCreateFileFromTemplate(t *testing.T) {
 }
 
 func TestUnknownPlaceholder(t *testing.T) {
-	svc := newService(t, `{"meta":{"path":"{{unknown}}","entry":"environments"},"environments":[]}`)
+	svc := newService(t, `{"meta":{"path":"{{.Unknown}}","entry":"environments"},"environments":[]}`)
 	if _, err := svc.CreateFile("api.json", nil); !errors.Is(err, domainenvironments.ErrUnknownPlace) {
 		t.Fatalf("未知占位符应报错, got %v", err)
 	}
 }
 
 func TestDeleteDirRequiresEmpty(t *testing.T) {
-	svc := newService(t, template)
+	svc := newService(t, testTemplate)
 	if _, err := svc.CreateDir("default"); err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +142,7 @@ func TestDeleteDirRequiresEmpty(t *testing.T) {
 }
 
 func TestRenameFile(t *testing.T) {
-	svc := newService(t, template)
+	svc := newService(t, testTemplate)
 	if _, err := svc.CreateFile("a.json", nil); err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +158,7 @@ func TestRenameFile(t *testing.T) {
 }
 
 func TestValuesConflict(t *testing.T) {
-	svc := newService(t, template)
+	svc := newService(t, testTemplate)
 	if _, err := svc.CreateFile("a.json", nil); err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +171,7 @@ func TestValuesConflict(t *testing.T) {
 }
 
 func TestConcurrentRead(t *testing.T) {
-	svc := newService(t, template)
+	svc := newService(t, testTemplate)
 	if _, err := svc.CreateFile("a.json", nil); err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +189,7 @@ func TestConcurrentRead(t *testing.T) {
 }
 
 func TestUpdateFile(t *testing.T) {
-	svc := newService(t, template)
+	svc := newService(t, testTemplate)
 	doc, err := svc.CreateFile("a.json", nil)
 	if err != nil {
 		t.Fatal(err)

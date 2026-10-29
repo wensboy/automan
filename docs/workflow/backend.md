@@ -11,6 +11,7 @@ description: "backend 必要的规范"
 4. service 之间调用通过方法/函数闭包, 避免服务之间过渡调用和注入. 
 5. 独立领域新开语义 domain, 避免 domian 职责边界混乱.
 6. 针对后端而言, 所有程序配置在 `src/data/conf/*.json`; 默认数据在 `src/data/default`; 文档数据在 `src/data/docs/`; 数据库迁移在 `src/data/migrate/*.sql`; 所有规范结构在 `src/data/schema`.
+7. 所有 `data/` 下的 json 结构可以直接使用原生的 text/template 解析 `{{.xxx}}` 结构, 通常满足: 该字段无法编译时确定, 运行时操作替换, 替换后通常固定; `*.tpl.*` 模板文件(显式, 通常存在 `{{}}` 结构). 结构内字段通常采用大驼峰格式命名, template使用一般结构体映射, 对于复杂场景下考虑用map避免过度定义结构. 当前不考虑 function, condition 等高级处理形式.
 
 ## 细节
 
@@ -27,3 +28,4 @@ description: "backend 必要的规范"
 11. 破坏性操作默认安全: 删目录仅允许空目录, 递归需显式参数且受配置开关(如 `allowRecursiveDelete`)控制; `RowsAffected == 0` 必须视为失败, 不得继续发成功提示.
 12. 作用域 SQL 的过滤条件统一**追加**在 where 末尾, 保证参数顺序与占位符一致(避免 user_id/id 错位).
 13. 设计文档(vxx.md)只记录需求与决策历史; 实现中沉淀的通用规范写入本文件 `## 细节`.
+14. 模板文件(`*.tpl.*`)里的 `{{.Xxx}}` 一律用标准库 `text/template` 渲染, 禁止手写正则/字符串替换; 上下文用小写私有 struct(字段名即模板变量名), 解析失败归 `ErrInvalidFile`、未知字段归 `ErrUnknownPlace`; 类似 `${X}` 的**字符串占位符**(如启动参数)仍走 `internal/flat`, 不套模板.
