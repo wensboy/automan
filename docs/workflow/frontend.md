@@ -18,3 +18,11 @@ description: "frontend 必要的规范"
 
 1. 静态数据通常包含: ui组件静态文本, ui组件动态文本映射, 组件显示定义, 组件静态类型定义, 灵活拓展覆盖.
 2. lib/*.ts 遵循单一文件单一职责原则, 允许多组件模块共享使用.
+3. 静态层覆盖所有可见文案与 `aria-label/placeholder/title/alt`(`components/ui/*` 的 shadcn 默认文案除外).
+4. 共享组件禁止依赖 mock: 展示类型随组件或 lib 定义; mock 仅服务未对接页面, 对接后删除并将类型/格式化迁入 lib.
+5. 图标名以 kebab-case 存在静态层, 映射只在 `lib/icons.ts` 注册, 组件统一用 `resolveIcon` 使用.
+6. 图表容器必须有确定尺寸: 用 flex 定高链或固定像素高度; flex 居中容器内不要用百分比高度(会算成 0).
+7. 通知/抽屉长文本: 标题完整换行(`whitespace-normal` + `break-words`), 次要内容 `line-clamp` 截断.
+8. 编辑保存交互: 脏值时在文件名右侧显示保存按钮, 保存成功后消失; 展示用 pretty JSON, 存储可压缩.
+9. 服务端错误通过 dialog 内错误文本或 `notify` 呈现, 文案必须来自静态层.
+10. 需求/决策历史留在 vxx.md; 前端通用规范写入本文件 `## 细节`.
