@@ -19,6 +19,9 @@ const (
 	// TopicNoticeCleared 在 UI 清除提示队列时广播.
 	TopicNoticeCleared Topic = "notice.cleared"
 
+	// TopicCertificateChanged 在证书记录集合变化时广播(同步/导入/编辑/删除).
+	TopicCertificateChanged Topic = "certificate.changed"
+
 	// TopicLogDropped 在日志溢出或落盘失败时广播.
 	TopicLogDropped Topic = "log.dropped"
 	// TopicSessionSignup 在用户注册成功时广播.

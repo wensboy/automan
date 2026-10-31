@@ -1,0 +1,10 @@
+{
+    "name": "{{.Name}}",
+    "type": "{{.Type}}",
+    "createdAt": "{{.CreatedAt}}",
+    "updatedAt": "{{.UpdatedAt}}",
+    "certPath": "{{.CertPath}}",
+    "keyPath": "{{.KeyPath}}",
+    "valid": "{{.Valid}}",
+    "tags": []
+}

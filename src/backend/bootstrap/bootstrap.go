@@ -45,6 +45,7 @@ func Run(assets, data fs.FS) error {
 			application.NewService(apiweb.NewAnalysisService(rt)),
 			application.NewService(apiweb.NewAboutService(rt)),
 			application.NewService(apiweb.NewEnvironmentsService(rt)),
+			application.NewService(apiweb.NewCertificateService(rt)),
 			application.NewService(apiweb.NewHelpService(rt)),
 			application.NewService(apiweb.NewCommandService(rt)),
 			application.NewService(apiweb.NewWorkspaceService(rt)),

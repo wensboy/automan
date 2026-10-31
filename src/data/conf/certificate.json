@@ -1,0 +1,10 @@
+{
+    "meta": {
+        "namespace": "conf/certificate"
+    },
+    "root": "certs",
+    "file": "certificates.json",
+    "limit": 256,
+    "certDir": "${HOME}/.WhistleAppData/.whistle/certs/",
+    "syncIntervalMs": 600000
+}

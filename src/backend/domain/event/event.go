@@ -29,6 +29,15 @@ type SettingsSaved struct {
 	Keys int
 }
 
+// CertificateChanged 是证书记录集合变化事件的载荷.
+// Reason 取 sync|import|update|delete; 统计只在 Reason=sync 时可能有值.
+type CertificateChanged struct {
+	Reason  string
+	Added   int
+	Removed int
+	Updated int
+}
+
 // LogDropReason 是日志丢弃/落盘失败的原因.
 type LogDropReason string
 

@@ -2,6 +2,7 @@ import * as React from "react"
 import { MenuIcon } from "lucide-react"
 
 import AboutView from "@/components/custom/home/about"
+import CertificatesView from "@/components/custom/home/certificates"
 import EnvironmentView from "@/components/custom/home/environment"
 import AnalysisView from "@/components/custom/home/analysis"
 import EmptyState from "@/components/custom/share/empty-state"
@@ -98,6 +99,8 @@ export default function Home() {
             <AboutView />
           ) : activeFeature?.id === "environment" ? (
             <EnvironmentView />
+          ) : activeFeature?.id === "certificates" ? (
+            <CertificatesView />
           ) : activeFeature ? (
             <EmptyState
               title={activeFeature.label}

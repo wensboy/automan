@@ -77,6 +77,9 @@ func (e *Engine) Init(ctx context.Context) error {
 	unsubNotice := ebus.Subscribe(event.TopicNoticeAppended, e.forwardNoticeAppended)
 	unsubNoticeCleared := ebus.Subscribe(event.TopicNoticeCleared, e.forwardNoticeCleared)
 
+	// 证书记录变化: 同步/导入/编辑/删除后让前端重载列表
+	unsubCertificate := ebus.Subscribe(event.TopicCertificateChanged, e.forwardCertificateChanged)
+
 	// 日志流: 订阅日志引擎的二级总线(不经主总线, 避免高频日志卷入所有订阅者),
 	// 批量转成前端事件 "log:stream" (见 docs/design/v16.md 第 3/6 节)。
 	unsubLog := func() {}
@@ -101,6 +104,7 @@ func (e *Engine) Init(ctx context.Context) error {
 		unsubExpired()
 		unsubNotice()
 		unsubNoticeCleared()
+		unsubCertificate()
 		unsubLog()
 	}
 	return nil
@@ -257,4 +261,18 @@ func (e *Engine) forwardNoticeCleared(payload any) {
 		return
 	}
 	e.app.Event.Emit("notify:cleared", map[string]any{"at": cleared.At})
+}
+
+// forwardCertificateChanged 转发证书记录变化(前端据此重载列表).
+func (e *Engine) forwardCertificateChanged(payload any) {
+	changed, ok := cast.As[event.CertificateChanged](payload)
+	if !ok || e.app == nil {
+		return
+	}
+	e.app.Event.Emit("certificate:changed", map[string]any{
+		"reason":  changed.Reason,
+		"added":   changed.Added,
+		"removed": changed.Removed,
+		"updated": changed.Updated,
+	})
 }

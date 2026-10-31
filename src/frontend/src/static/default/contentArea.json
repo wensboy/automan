@@ -248,6 +248,38 @@
                 }
             ]
         },
+        "certificates": {
+            "actions": {
+                "sync": "Sync",
+                "import": "Import",
+                "edit": "Edit",
+                "view": "View",
+                "export": "Export",
+                "delete": "Delete"
+            },
+            "columns": {
+                "id": "ID",
+                "name": "Name",
+                "type": "Type",
+                "key": "Key",
+                "value": "Value"
+            },
+            "noSelection": "No certificate selected",
+            "emptyDescription": "Select a certificate to inspect its details.",
+            "editorAria": "Certificate document",
+            "errorTitle": "Invalid certificate document",
+            "errorDescription": "The document is not a valid JSON object.",
+            "importTitle": "Import certificate",
+            "filterName": "Certificate files",
+            "exportTitle": "Export certificate",
+            "deleteDialog": {
+                "title": "Delete certificate",
+                "message": "Delete \"{name}\"? Choose what to remove.",
+                "recordOnly": "Record only",
+                "withFile": "Record and file",
+                "cancel": "Cancel"
+            }
+        },
         "environment": {
             "title": "Environment",
             "searchPlaceholder": "Search files",

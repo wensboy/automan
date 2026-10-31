@@ -3,6 +3,7 @@
 
 import * as AboutService from "./aboutservice.js";
 import * as AnalysisService from "./analysisservice.js";
+import * as CertificateService from "./certificateservice.js";
 import * as CommandService from "./commandservice.js";
 import * as EnvironmentsService from "./environmentsservice.js";
 import * as HelpService from "./helpservice.js";
@@ -16,6 +17,7 @@ import * as WorkspaceService from "./workspaceservice.js";
 export {
     AboutService,
     AnalysisService,
+    CertificateService,
     CommandService,
     EnvironmentsService,
     HelpService,

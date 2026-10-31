@@ -18,6 +18,7 @@ import (
 	"github.com/wensboy/automan/backend/internal/kits/srvkit"
 	serviceabout "github.com/wensboy/automan/backend/service/about"
 	serviceanalysis "github.com/wensboy/automan/backend/service/analysis"
+	servicecertificate "github.com/wensboy/automan/backend/service/certificate"
 	servicecommand "github.com/wensboy/automan/backend/service/command"
 	serviceenvironments "github.com/wensboy/automan/backend/service/environments"
 	servicehelp "github.com/wensboy/automan/backend/service/help"
@@ -165,6 +166,21 @@ func registerServices(deps serviceDeps) (func(), error) {
 		return nil, err
 	}
 
+	// 证书: whistle 全局证书目录 -> 记录 -> 事件; 启动/定时/终止三处同步(失败只 Warn, 不阻断主链)
+	certificateSvc := servicecertificate.New().
+		WithStore(engines.files).
+		WithConfig(deps.provider).
+		WithData(deps.data).
+		WithLogger(engines.logger).
+		WithEventBus(engines.ebus).
+		WithNotice(noticeSvc)
+	if certificateErr := certificateSvc.Init(); certificateErr != nil {
+		engines.logger.Deliver(logkit.New(domainlog.LevelWarn, "certificate: init failed", logkit.F("err", certificateErr)))
+	}
+	if err := srvkit.Register(deps.runtime, servicecertificate.Key, certificateSvc); err != nil {
+		return nil, err
+	}
+
 	// 分析: trace 写入 + 聚合 + 采样(失败不阻断主链)
 	analysisSvc := serviceanalysis.New().
 		WithConfig(deps.provider).
@@ -249,5 +265,9 @@ func registerServices(deps serviceDeps) (func(), error) {
 		return nil, err
 	}
 
-	return sessionSrv.Close, nil
+	return func() {
+		sessionSrv.Close()
+		// 终止同步: 把内存记录收敛落盘(见 v27 §6)
+		certificateSvc.Stop()
+	}, nil
 }
