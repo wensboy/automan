@@ -13,3 +13,5 @@ build/ios/xcode/overlay.json
 build/ios/xcode/gen/
 build/android/overlay.json
 build/android/gen/
+# 开发临时目录
+tmp*
