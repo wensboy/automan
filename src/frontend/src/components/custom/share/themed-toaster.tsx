@@ -42,9 +42,11 @@ export default function ThemedToaster() {
           boxShadow: "0 8px 24px oklch(0 0 0 / 0.12)",
         },
         classNames: {
-          toast: "!min-w-0 !max-w-[min(92vw,380px)]",
-          // 标题是主信息: 允许多行完整展示(长错误信息不再横向溢出)
-          title: "!whitespace-normal !break-words !leading-snug",
+          // items-start: 左侧 icon 与标题首行对齐(否则会在两行内容里垂直居中)
+          toast: "!min-w-0 !max-w-[min(92vw,380px)] !items-start",
+          icon: "!mt-0.5",
+          // 标题单行截断(悬停由 title 属性展示全文, 见 lib/notice 的 toastTitle)
+          title: "!min-w-0 !truncate",
           // 细节内容保持截断, 避免 toast 过高
           description: "!text-muted-foreground !line-clamp-2 !break-words",
           actionButton: "!bg-primary !text-primary-foreground",

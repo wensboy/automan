@@ -1,3 +1,4 @@
+import { createElement, type ReactElement } from "react"
 import { Events } from "@wailsio/runtime"
 import { toast } from "sonner"
 
@@ -113,21 +114,30 @@ export function dismissNotice(id: string): void {
   emit()
 }
 
+/**
+ * toast 标题: 单行截断, 悬停用 title 属性展示全文。
+ * 标题过长时不再横向撑开 toast(容器样式见 share/themed-toaster)。
+ */
+function toastTitle(text: string): ReactElement {
+  return createElement("span", { title: text, className: "block truncate" }, text)
+}
+
 function showToast(item: Notice): void {
   const description = item.content || undefined
+  const title = toastTitle(item.title)
   if (item.level === "error") {
-    toast.error(item.title, { description })
+    toast.error(title, { description })
     return
   }
   if (item.level === "warn") {
-    toast.warning(item.title, { description })
+    toast.warning(title, { description })
     return
   }
   if (item.level === "success") {
-    toast.success(item.title, { description })
+    toast.success(title, { description })
     return
   }
-  toast(item.title, { description })
+  toast(title, { description })
 }
 
 /**

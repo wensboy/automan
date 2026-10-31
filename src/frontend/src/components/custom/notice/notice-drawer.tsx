@@ -113,8 +113,11 @@ export default function NoticeDrawer({
         </DrawerHeader>
         <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 pt-0">
           <NoticeSearch value={query} onChange={setQuery} />
-          {/* ScrollArea 的滑块是 Radix 自绘元素, 不走浏览器滚动条伪元素; 按"滚动条一律隐藏"一并收起 */}
-          <ScrollArea className="min-h-0 flex-1 [&_[data-slot=scroll-area-scrollbar]]:hidden">
+          {/*
+            ScrollArea 内部把内容包成 display:table, 单行文本(nowrap)会把宽度撑出视口;
+            这里强制改回 block, 让条目的 truncate 生效。滑块是 Radix 自绘元素, 一并收起。
+          */}
+          <ScrollArea className="min-h-0 flex-1 [&_[data-slot=scroll-area-scrollbar]]:hidden [&_[data-slot=scroll-area-viewport]>div]:!block">
             <div className="flex flex-col gap-3">
               {visible.map((notice) => (
                 <NoticeItem

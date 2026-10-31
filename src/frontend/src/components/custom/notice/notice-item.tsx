@@ -7,8 +7,8 @@ import type { Entry as Notice } from "../../../../bindings/github.com/wensboy/au
 import { staticValue } from "@/components/custom/share/provider/static-provider"
 
 /**
- * 单条通知: header 左侧 label, 右侧图标按钮 (展开 / 关闭);
- * body 为 title(单行截断) + content(2 行截断, 展开后完整显示)。
+ * 单条通知: header 左侧 label, 右侧图标按钮 (展开 / 关闭)。
+ * body 为 title + content: 默认都是**单行截断**(不横向溢出), 点击卡片任意处(或展开按钮)展示全文。
  */
 export default function NoticeItem({
   notice,
@@ -18,15 +18,27 @@ export default function NoticeItem({
   onDismiss?: (id: string) => void
 }) {
   const [expanded, setExpanded] = React.useState(false)
+  const toggle = () => setExpanded((previous) => !previous)
 
   return (
-    <div className="rounded-lg border p-3">
+    <div
+      role="button"
+      tabIndex={0}
+      aria-expanded={expanded}
+      onClick={toggle}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return
+        event.preventDefault()
+        toggle()
+      }}
+      className="cursor-pointer rounded-lg border p-3 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+    >
       <div className="flex items-center justify-between gap-2">
         {/* label 是可选分类标记: 为空时整段不渲染, 避免头部留白(操作类信息不应进 notice, 见 v20 §10) */}
         {notice.label ? (
-          <span className="text-xs font-medium text-muted-foreground">{notice.label}</span>
+          <span className="truncate text-xs font-medium text-muted-foreground">{notice.label}</span>
         ) : null}
-        <div className="ml-auto flex items-center gap-0.5">
+        <div className="ml-auto flex shrink-0 items-center gap-0.5">
           <Button
             type="button"
             variant="ghost"
@@ -34,7 +46,10 @@ export default function NoticeItem({
             className="size-6"
             aria-label={expanded ? staticValue("sidebar.notice.collapse") : staticValue("sidebar.notice.expand")}
             aria-expanded={expanded}
-            onClick={() => setExpanded((prev) => !prev)}
+            onClick={(event) => {
+              event.stopPropagation()
+              toggle()
+            }}
           >
             <ChevronDownIcon
               className={cn("size-3.5 transition-transform", expanded && "rotate-180")}
@@ -46,19 +61,22 @@ export default function NoticeItem({
             size="icon"
             className="size-6 hover:text-destructive"
             aria-label={staticValue("sidebar.notice.dismiss")}
-            onClick={() => onDismiss?.(notice.id)}
+            onClick={(event) => {
+              event.stopPropagation()
+              onDismiss?.(notice.id)
+            }}
           >
             <XIcon className="size-3.5" />
           </Button>
         </div>
       </div>
       <div className="mt-2 space-y-1">
-        {/* 标题是主信息: 为空时不渲染这一行(避免出现"有卡片没内容"的空壳) */}
+        {/* 标题是主信息: 默认单行截断, 展开后完整显示(长路径用 break-all 防止横向溢出) */}
         {notice.title ? (
           <p
             className={cn(
-              "text-sm font-medium break-words",
-              expanded ? "whitespace-pre-wrap" : "line-clamp-2",
+              "text-sm font-medium",
+              expanded ? "break-words whitespace-pre-wrap" : "truncate",
             )}
           >
             {notice.title}
@@ -67,8 +85,8 @@ export default function NoticeItem({
         {notice.content ? (
           <p
             className={cn(
-              "text-xs text-muted-foreground break-words",
-              expanded ? "whitespace-pre-wrap" : "line-clamp-2",
+              "text-xs text-muted-foreground",
+              expanded ? "break-all whitespace-pre-wrap" : "truncate",
             )}
           >
             {notice.content}
